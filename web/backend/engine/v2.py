@@ -1,0 +1,50 @@
+"""PairMap2 engine — wraps pairmap2.Pipeline."""
+from __future__ import annotations
+
+import time
+
+from .base import EngineResult, PairMapEngine
+
+
+class PairMapV2Engine(PairMapEngine):
+    """Wraps pairmap2.Pipeline (the improved scoring engine)."""
+
+    def run(self, input_dir: str, config: dict) -> EngineResult:
+        from pairmap2 import Pipeline, PipelineConfig
+
+        cfg = PipelineConfig(
+            input_dir=input_dir,
+            output_dir=config.get("output_dir", "./output"),
+            save_output=config.get("save_output", False),
+            similarity_threshold=config.get("similarity_threshold", 0.6),
+            max_path_length=config.get("max_path_length", 4),
+            max_intermediate=config.get("max_intermediate", -1),
+            jobs=config.get("jobs", -1),
+            verbose=config.get("verbose", False),
+        )
+        pipeline = Pipeline(cfg)
+        result = pipeline.run(input_dir=input_dir)
+        return EngineResult(
+            graphs=result.graphs,
+            node_mols=result.node_mols,
+            timings=result.timings,
+        )
+
+    def run_from_moldf(self, mols: list, df, config: dict) -> EngineResult:
+        from pairmap2 import Pipeline, PipelineConfig
+
+        cfg = PipelineConfig(
+            save_output=False,
+            similarity_threshold=config.get("similarity_threshold", 0.6),
+            max_path_length=config.get("max_path_length", 4),
+            max_intermediate=config.get("max_intermediate", -1),
+            jobs=config.get("jobs", -1),
+            verbose=config.get("verbose", False),
+        )
+        pipeline = Pipeline(cfg)
+        result = pipeline.run_from_moldf(mols, df)
+        return EngineResult(
+            graphs=result.graphs,
+            node_mols=result.node_mols,
+            timings=result.timings,
+        )

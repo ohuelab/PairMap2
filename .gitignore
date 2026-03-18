@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+
+# Runtime
+jobs/
+cache/
+*.db
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

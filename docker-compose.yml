@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  pairmap2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./jobs:/app/jobs
+      - ./cache:/app/cache
+    environment:
+      - PAIRMAP_JOBS_DIR=/app/jobs
+      - PAIRMAP_CACHE_DB=/app/cache/scores.db
+    restart: unless-stopped
