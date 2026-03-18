@@ -96,30 +96,6 @@ a:hover { text-decoration: underline; }
   flex-shrink: 0;
 }
 
-.health-badge {
-  font-size: 12px;
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-weight: 500;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  background: var(--surface-raised);
-  transition: var(--transition);
-  white-space: nowrap;
-}
-
-.health-badge.ok {
-  color: var(--green);
-  border-color: rgba(34, 197, 94, 0.3);
-  background: var(--green-muted);
-}
-
-.health-badge.err {
-  color: var(--red);
-  border-color: rgba(239, 68, 68, 0.3);
-  background: var(--red-muted);
-}
-
 /* ── Tab Bar ───────────────────────────────────────────────────────────────── */
 .tab-bar {
   background: var(--surface);
@@ -166,7 +142,7 @@ a:hover { text-decoration: underline; }
 .app-main {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: 0.75rem 1.5rem;
 }
 
 .tab-content { display: none; }
@@ -177,8 +153,8 @@ a:hover { text-decoration: underline; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.6rem;
 }
 
 .card-title {
@@ -521,7 +497,21 @@ input[type="range"]::-moz-range-thumb {
   background: var(--surface);
 }
 
-.param-section-body.open { display: block; }
+.param-section-body.open {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 0.75rem;
+}
+
+.param-section-body.open .slider-row {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 768px) {
+  .param-section-body.open {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* ── Buttons ───────────────────────────────────────────────────────────────── */
 .btn {
@@ -628,7 +618,7 @@ input[type="range"]::-moz-range-thumb {
   display: grid;
   grid-template-columns: 1fr 280px;
   gap: 1rem;
-  min-height: 520px;
+  min-height: 420px;
 }
 
 @media (max-width: 900px) {
@@ -641,13 +631,13 @@ input[type="range"]::-moz-range-thumb {
   border-radius: var(--radius-lg);
   position: relative;
   overflow: hidden;
-  min-height: 480px;
+  min-height: 380px;
 }
 
 #cy-pair, #cy-map {
   width: 100%;
   height: 100%;
-  min-height: 480px;
+  min-height: 380px;
 }
 
 .cy-toolbar {
@@ -1114,4 +1104,72 @@ tbody tr:hover { background: var(--surface-hover); }
 .mcs-mol-svg svg {
   width: 100%;
   height: auto;
+}
+
+/* ── Map molecule list ─────────────────────────────────────────────────────── */
+.map-mol-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.map-mol-list table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.map-mol-list th {
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+}
+
+.map-mol-list td {
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.map-mol-list tr:last-child td {
+  border-bottom: none;
+}
+
+.map-mol-list tr:hover td {
+  background: var(--surface-hover);
+}
+
+.mol-thumb {
+  width: 80px;
+  height: 60px;
+  display: block;
+}
+
+.mol-thumb svg {
+  width: 80px;
+  height: 60px;
+}
+
+.mol-smiles-cell {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-mol-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 1.5rem;
+  font-size: 13px;
 }

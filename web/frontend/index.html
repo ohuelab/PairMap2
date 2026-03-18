@@ -21,7 +21,6 @@
       </svg>
       PairMap
     </span>
-    <span id="health-badge" class="health-badge">checking…</span>
   </div>
 </header>
 
@@ -59,11 +58,6 @@
         <div class="mode-toggle">
           <button class="mode-btn active" id="mode-smiles">SMILES</button>
           <button class="mode-btn" id="mode-sdf">SDF</button>
-        </div>
-        <div class="field" style="width:140px;margin-bottom:0;">
-          <select id="pair-engine">
-            <option value="v2">PairMap2</option>
-          </select>
         </div>
         <button class="btn btn-secondary btn-sm" id="pair-example-btn">Example</button>
       </div>
@@ -137,12 +131,12 @@
 
     <!-- Search -->
     <div class="param-section">
-      <button class="param-section-header open" data-section="search-params">
+      <button class="param-section-header" data-section="search-params">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         Search Parameters
         <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
-      <div class="param-section-body open" id="search-params">
+      <div class="param-section-body" id="search-params">
         <div class="toggle-row">
           <div class="toggle-label">Atom modification<small>Allow atom type changes</small></div>
           <label class="toggle"><input type="checkbox" id="s-atom-mod" checked /><span class="toggle-slider"></span></label>
@@ -282,7 +276,10 @@
 
   <!-- Input -->
   <div class="card">
-    <div class="card-title">Input</div>
+    <div class="card-title-row">
+      <div class="card-title">Input</div>
+      <button class="btn btn-secondary btn-sm" id="map-example-btn">Example</button>
+    </div>
     <div class="dropzone" id="map-dropzone">
       <input type="file" id="map-sdf-file" accept=".sdf" />
       <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -296,6 +293,19 @@
     <div class="mt-1">
       <input type="hidden" id="map-engine" value="v2" />
     </div>
+  </div>
+
+  <!-- Molecule list -->
+  <div class="card">
+    <div class="card-title-row">
+      <div class="card-title">Molecules (<span id="map-mol-count">0</span>)</div>
+      <button class="btn btn-secondary btn-sm" id="map-clear-all-btn">Clear All</button>
+    </div>
+    <div class="field" style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
+      <input type="text" id="map-smiles-input" class="smiles-input" placeholder="Add SMILES manually…" style="flex:1;" />
+      <button class="btn btn-secondary btn-sm" id="map-add-smiles-btn">Add</button>
+    </div>
+    <div id="map-mol-list" class="map-mol-list"></div>
   </div>
 
   <!-- Parameters -->
@@ -410,9 +420,14 @@
   <div class="graph-section mt-2" id="map-graph-section">
     <div class="section-header">
       <span class="section-title">Map — <span id="map-graph-job-label"></span></span>
-      <div class="graph-legend">
-        <div class="legend-item"><div class="legend-dot source"></div>Active</div>
-        <div class="legend-item"><div class="legend-dot intermediate"></div>Intermediate</div>
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <div class="graph-legend">
+          <div class="legend-item"><div class="legend-dot source"></div>Active</div>
+          <div class="legend-item"><div class="legend-dot intermediate"></div>Intermediate</div>
+        </div>
+        <div id="map-download-toolbar" style="display:none;align-items:center;gap:0.4rem;">
+          <button class="btn btn-secondary btn-sm" id="map-download-sdf">↓ Intermediates SDF</button>
+        </div>
       </div>
     </div>
     <div class="graph-layout">

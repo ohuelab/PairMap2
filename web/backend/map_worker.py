@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import multiprocessing
-import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -18,26 +17,43 @@ def _run_job(job_id: str, engine_name: str, config: dict, input_sdf: str) -> Non
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
 
-    from PairMapWeb.backend import map_store
-    from PairMapWeb.backend.engine import get_engine
-    from PairMapWeb.backend.utils import graph_to_cytoscape
-
-    job_dir = MAP_JOBS_DIR / job_id
-    input_dir = job_dir / "input"
-    output_dir = job_dir / "output"
-    input_dir.mkdir(parents=True, exist_ok=True)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    shutil.copy(input_sdf, input_dir / Path(input_sdf).name)
-
-    map_store.update_job(
-        job_id,
-        status="running",
-        started_at=datetime.utcnow().isoformat(),
-        progress="Starting engine",
-    )
+    from web.backend import map_store
+    from web.backend.engine import get_engine
+    from web.backend.utils import graph_to_cytoscape
 
     try:
+        job_dir = MAP_JOBS_DIR / job_id
+        input_dir = job_dir / "input"
+        output_dir = job_dir / "output"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Split multi-molecule SDF into one file per molecule (LOMAP requirement)
+        sdf_path = Path(input_sdf)
+        raw = sdf_path.read_text()
+        records = [r.strip() for r in raw.split("$$$$") if r.strip()]
+        if len(records) < 2:
+            raise ValueError(f"Input SDF must contain at least 2 molecules, got {len(records)}")
+        # Remove the combined SDF so only per-mol files remain in input_dir
+        sdf_path.unlink(missing_ok=True)
+        for i, molblock in enumerate(records):
+            first_line = molblock.splitlines()[0].strip()
+            mol_name = first_line if first_line else f"mol_{i}"
+            # Sanitise name for use as filename
+            safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in mol_name)
+            out_path = input_dir / f"{safe_name or f'mol_{i}'}.sdf"
+            # Avoid collisions
+            if out_path.exists():
+                out_path = input_dir / f"{safe_name}_{i}.sdf"
+            out_path.write_text(molblock + "\n$$$$\n")
+
+        map_store.update_job(
+            job_id,
+            status="running",
+            started_at=datetime.utcnow().isoformat(),
+            progress="Starting engine",
+        )
+
         engine = get_engine(engine_name)
         map_store.update_job(job_id, progress="Running PairMap engine")
 
@@ -54,7 +70,9 @@ def _run_job(job_id: str, engine_name: str, config: dict, input_sdf: str) -> Non
             json.dump(cy, f)
 
         with open(job_dir / "timings.json", "w") as f:
-            json.dump(result.timings, f)
+            import dataclasses
+            timings_data = [dataclasses.asdict(t) if dataclasses.is_dataclass(t) else t for t in result.timings]
+            json.dump(timings_data, f)
 
         map_store.update_job(
             job_id,
@@ -83,7 +101,7 @@ def submit_job(
     p = multiprocessing.Process(
         target=_run_job,
         args=(job_id, engine_name, config, input_sdf),
-        daemon=True,
+        daemon=False,
     )
     p.start()
     return p

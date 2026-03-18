@@ -10,6 +10,7 @@ services:
     volumes:
       - ./jobs:/app/jobs
       - ./cache:/app/cache
+      - ./web/frontend:/app/web/frontend
     environment:
       - PAIRMAP_JOBS_DIR=/app/jobs
       - PAIRMAP_CACHE_DB=/app/cache/scores.db

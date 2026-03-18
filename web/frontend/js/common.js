@@ -100,20 +100,6 @@ document.querySelectorAll('.dropzone').forEach(dz => {
   dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); });
 });
 
-/* ── Health check ──────────────────────────────────────────────────────────── */
-async function checkHealth() {
-  const badge = document.getElementById('health-badge');
-  try {
-    const res = await fetch(API_BASE + '/api/health');
-    if (!res.ok) throw new Error();
-    badge.textContent = 'API OK';
-    badge.className = 'health-badge ok';
-  } catch {
-    badge.textContent = 'API Unreachable';
-    badge.className = 'health-badge err';
-  }
-}
-
 /* ── Show / hide alert ─────────────────────────────────────────────────────── */
 function showAlert(el, msg, type = 'error') {
   el.textContent = msg;
@@ -448,5 +434,3 @@ async function renderEdgeSidebar(sidebarId, nodeA, nodeB, similarity, sessionId)
   }
 }
 
-// Kick off health check immediately
-checkHealth();

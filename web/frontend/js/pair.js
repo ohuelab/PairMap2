@@ -329,7 +329,7 @@ document.getElementById('pair-generate-btn').addEventListener('click', async () 
     let data;
     const { search, mapgen } = getSearchMapgenParams();
 
-    const engine = document.getElementById('pair-engine').value;
+    const engine = 'v2';
 
     if (pairInputMode === 'smiles') {
       const smilesA = document.getElementById('smiles-a').value.trim();
