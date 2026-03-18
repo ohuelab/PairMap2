@@ -7,7 +7,7 @@ import uuid
 from functools import partial
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from .. import map_store
@@ -24,6 +24,7 @@ async def create_map_job(
     file: UploadFile = File(..., description="Input SDF with ligands"),
     engine: str = Form("v2"),
     config: str = Form("{}"),
+    x_session_id: str = Header(...),
 ):
     try:
         cfg = json.loads(config)
@@ -37,32 +38,32 @@ async def create_map_job(
     sdf_path = job_dir / (file.filename or "input.sdf")
     sdf_path.write_bytes(await file.read())
 
-    status = map_store.create_job(job_id, engine, cfg)
+    status = map_store.create_job(job_id, engine, cfg, session_id=x_session_id)
     proc = submit_job(job_id, engine, cfg, str(sdf_path))
     _processes[job_id] = proc
     return status
 
 
 @router.get("/jobs", response_model=MapJobList)
-async def list_map_jobs():
-    return MapJobList(jobs=map_store.list_jobs())
+async def list_map_jobs(x_session_id: str = Header(...)):
+    return MapJobList(jobs=map_store.list_jobs(session_id=x_session_id))
 
 
 @router.get("/jobs/{job_id}", response_model=MapJobStatus)
-async def get_map_job(job_id: str):
-    status = map_store.get_job(job_id)
+async def get_map_job(job_id: str, x_session_id: str = Header(...)):
+    status = map_store.get_job(job_id, session_id=x_session_id)
     if status is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return status
 
 
 @router.get("/jobs/{job_id}/graph")
-async def get_map_graph(job_id: str):
+async def get_map_graph(job_id: str, x_session_id: str = Header(...)):
+    if map_store.get_job(job_id, session_id=x_session_id) is None:
+        raise HTTPException(status_code=404, detail="Job not found")
     graph_path = MAP_JOBS_DIR / job_id / "graph.json"
     if not graph_path.exists():
-        status = map_store.get_job(job_id)
-        if status is None:
-            raise HTTPException(status_code=404, detail="Job not found")
+        status = map_store.get_job(job_id, session_id=x_session_id)
         raise HTTPException(
             status_code=404,
             detail=f"Graph not yet available (status: {status.status})",
@@ -72,7 +73,9 @@ async def get_map_graph(job_id: str):
 
 
 @router.get("/jobs/{job_id}/artifacts/{filename}")
-async def get_map_artifact(job_id: str, filename: str):
+async def get_map_artifact(job_id: str, filename: str, x_session_id: str = Header(...)):
+    if map_store.get_job(job_id, session_id=x_session_id) is None:
+        raise HTTPException(status_code=404, detail="Job not found")
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
     artifact = MAP_JOBS_DIR / job_id / "output" / filename
@@ -82,8 +85,8 @@ async def get_map_artifact(job_id: str, filename: str):
 
 
 @router.post("/jobs/{job_id}/cancel", response_model=MapJobStatus)
-async def cancel_map_job(job_id: str):
-    status = map_store.get_job(job_id)
+async def cancel_map_job(job_id: str, x_session_id: str = Header(...)):
+    status = map_store.get_job(job_id, session_id=x_session_id)
     if status is None:
         raise HTTPException(status_code=404, detail="Job not found")
     if status.status not in ("queued", "running"):
@@ -102,7 +105,7 @@ async def cancel_map_job(job_id: str):
         status="cancelled",
         completed_at=datetime.utcnow().isoformat(),
     )
-    return map_store.get_job(job_id)
+    return map_store.get_job(job_id, session_id=x_session_id)
 
 
 def _compute_map_mcs(job_id: str, node_a: str, node_b: str) -> dict:
@@ -196,9 +199,9 @@ def _compute_map_mcs(job_id: str, node_a: str, node_b: str) -> dict:
 
 
 @router.get("/jobs/{job_id}/mcs/{node_a}/{node_b}")
-async def get_map_mcs(job_id: str, node_a: str, node_b: str):
+async def get_map_mcs(job_id: str, node_a: str, node_b: str, x_session_id: str = Header(...)):
     """Return MCS-highlighted SVGs for two nodes in a map job graph."""
-    status = map_store.get_job(job_id)
+    status = map_store.get_job(job_id, session_id=x_session_id)
     if status is None:
         raise HTTPException(status_code=404, detail="Job not found")
     if status.status != "completed":

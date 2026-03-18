@@ -42,32 +42,47 @@ def init_db() -> None:
                 started_at TEXT,
                 completed_at TEXT,
                 error TEXT,
-                progress TEXT
+                progress TEXT,
+                session_id TEXT
             )
         """)
+        try:
+            con.execute("ALTER TABLE map_jobs ADD COLUMN session_id TEXT")
+        except sqlite3.OperationalError:
+            pass
 
 
-def create_job(job_id: str, engine: str, config: dict) -> MapJobStatus:
+def create_job(job_id: str, engine: str, config: dict, session_id: Optional[str] = None) -> MapJobStatus:
     now = datetime.utcnow().isoformat()
     with _conn() as con:
         con.execute(
-            "INSERT INTO map_jobs (id, status, engine, config_json, created_at) VALUES (?, ?, ?, ?, ?)",
-            (job_id, "queued", engine, json.dumps(config), now),
+            "INSERT INTO map_jobs (id, status, engine, config_json, created_at, session_id) VALUES (?, ?, ?, ?, ?, ?)",
+            (job_id, "queued", engine, json.dumps(config), now, session_id),
         )
-    return get_job(job_id)
+    return get_job(job_id, session_id=session_id)
 
 
-def get_job(job_id: str) -> Optional[MapJobStatus]:
+def get_job(job_id: str, session_id: Optional[str] = None) -> Optional[MapJobStatus]:
     with _conn() as con:
-        row = con.execute("SELECT * FROM map_jobs WHERE id = ?", (job_id,)).fetchone()
+        if session_id is not None:
+            row = con.execute(
+                "SELECT * FROM map_jobs WHERE id = ? AND session_id = ?", (job_id, session_id)
+            ).fetchone()
+        else:
+            row = con.execute("SELECT * FROM map_jobs WHERE id = ?", (job_id,)).fetchone()
     if row is None:
         return None
     return _row_to_status(row)
 
 
-def list_jobs() -> list[MapJobStatus]:
+def list_jobs(session_id: Optional[str] = None) -> list[MapJobStatus]:
     with _conn() as con:
-        rows = con.execute("SELECT * FROM map_jobs ORDER BY created_at DESC").fetchall()
+        if session_id is not None:
+            rows = con.execute(
+                "SELECT * FROM map_jobs WHERE session_id = ? ORDER BY created_at DESC", (session_id,)
+            ).fetchall()
+        else:
+            rows = con.execute("SELECT * FROM map_jobs ORDER BY created_at DESC").fetchall()
     return [_row_to_status(r) for r in rows]
 
 

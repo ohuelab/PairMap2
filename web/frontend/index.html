@@ -557,8 +557,20 @@
   </div>
 </div>
 
+<footer class="app-footer">
+  <span>PairMap &copy; 2025 Ohue Lab, Institute of Science Tokyo</span>
+  <span id="build-date"></span>
+</footer>
+
 <script src="js/common.js"></script>
 <script src="js/pair.js"></script>
 <script src="js/map.js"></script>
+<script>
+  const d = new Date(document.lastModified);
+  if (!isNaN(d.getTime())) {
+    document.getElementById('build-date').textContent =
+      'Last updated: ' + d.toISOString().slice(0, 10);
+  }
+</script>
 </body>
 </html>

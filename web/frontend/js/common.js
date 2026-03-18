@@ -423,6 +423,22 @@ document.getElementById('copy-bibtex-btn').addEventListener('click', () => {
   }
 });
 
+/* ── Session ID + fetch wrapper ────────────────────────────────────────────── */
+function getSessionId() {
+  let sid = sessionStorage.getItem('pairmap_session_id');
+  if (!sid) {
+    sid = crypto.randomUUID();
+    sessionStorage.setItem('pairmap_session_id', sid);
+  }
+  return sid;
+}
+
+function apiFetch(url, options = {}) {
+  const headers = new Headers(options.headers || {});
+  headers.set('X-Session-Id', getSessionId());
+  return fetch(url, { ...options, headers });
+}
+
 function fallbackCopy(text, btn) {
   const ta = document.createElement('textarea');
   ta.value = text;

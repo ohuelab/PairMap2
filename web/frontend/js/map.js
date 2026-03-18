@@ -202,7 +202,7 @@ document.getElementById('map-submit-btn').addEventListener('click', async () => 
   fd.append('config', JSON.stringify(config));
 
   try {
-    const res = await fetch(API_BASE + '/api/map/jobs', { method: 'POST', body: fd });
+    const res = await apiFetch(API_BASE + '/api/map/jobs', { method: 'POST', body: fd });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }));
       throw new Error(typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail));
@@ -222,7 +222,7 @@ document.getElementById('map-refresh-btn').addEventListener('click', refreshMapJ
 async function refreshMapJobs() {
   const tbody = document.getElementById('map-jobs-body');
   try {
-    const res = await fetch(API_BASE + '/api/map/jobs');
+    const res = await apiFetch(API_BASE + '/api/map/jobs');
     const data = await res.json();
     const jobs = data.jobs || [];
 
@@ -264,7 +264,7 @@ function startMapPolling(jobId) {
   if (mapPollTimer) clearInterval(mapPollTimer);
   mapPollTimer = setInterval(async () => {
     try {
-      const res = await fetch(API_BASE + `/api/map/jobs/${jobId}`);
+      const res = await apiFetch(API_BASE + `/api/map/jobs/${jobId}`);
       const job = await res.json();
       refreshMapJobs();
       if (!['queued', 'running'].includes(job.status)) {
@@ -281,7 +281,7 @@ function startMapPolling(jobId) {
 /* ── Cancel job ────────────────────────────────────────────────────────────── */
 async function cancelMapJob(jobId) {
   try {
-    await fetch(API_BASE + `/api/map/jobs/${jobId}/cancel`, { method: 'POST' });
+    await apiFetch(API_BASE + `/api/map/jobs/${jobId}/cancel`, { method: 'POST' });
     refreshMapJobs();
   } catch (err) {
     console.error('Cancel failed:', err);
@@ -294,7 +294,7 @@ async function viewMapGraph(jobId) {
   document.getElementById('map-graph-job-label').textContent = jobId.slice(0, 8) + '…';
 
   try {
-    const res = await fetch(API_BASE + `/api/map/jobs/${jobId}/graph`);
+    const res = await apiFetch(API_BASE + `/api/map/jobs/${jobId}/graph`);
     if (!res.ok) { showAlert(document.getElementById('map-alert'), 'Graph not available yet.'); return; }
     const data = await res.json();
 
@@ -371,7 +371,7 @@ async function renderMapEdgeSidebar(jobId, edgeData) {
     </div>`;
 
   try {
-    const res = await fetch(API_BASE + `/api/map/jobs/${jobId}/mcs/${source}/${target}`);
+    const res = await apiFetch(API_BASE + `/api/map/jobs/${jobId}/mcs/${source}/${target}`);
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
 
