@@ -5,6 +5,8 @@ WORKDIR /app
 # System dependencies for RDKit build
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    libxrender1 \
+    libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy project files

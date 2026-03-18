@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from . import job_store, map_store
 from .routes import health, jobs, pair, map as map_routes
 
-app = FastAPI(title="PairMapWeb")
+app = FastAPI(title="PairMap")
 
 app.add_middleware(
     CORSMiddleware,
