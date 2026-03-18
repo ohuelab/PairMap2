@@ -21,6 +21,7 @@
       </svg>
       PairMap
     </span>
+    <button class="btn btn-secondary btn-sm" id="about-btn">About</button>
   </div>
 </header>
 
@@ -427,6 +428,8 @@
         </div>
         <div id="map-download-toolbar" style="display:none;align-items:center;gap:0.4rem;">
           <button class="btn btn-secondary btn-sm" id="map-download-sdf">↓ Intermediates SDF</button>
+          <button class="btn btn-secondary btn-sm" id="map-download-links-csv">↓ Links CSV</button>
+          <button class="btn btn-secondary btn-sm" id="map-download-json">↓ Map JSON</button>
         </div>
       </div>
     </div>
@@ -452,6 +455,107 @@
 </section>
 
 </main>
+
+<!-- ── About Modal ─────────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="about-modal">
+  <div class="modal">
+    <button class="modal-close" id="about-close">&times;</button>
+    <nav class="modal-tabs">
+      <button class="modal-tab active" data-about="about">About</button>
+      <button class="modal-tab" data-about="tutorial">Tutorial</button>
+      <button class="modal-tab" data-about="citation">Citation</button>
+    </nav>
+    <div class="modal-body">
+
+      <section id="about-about" class="modal-section active">
+        <h2>About PairMap</h2>
+        <p>
+          PairMap is a tool for improving the accuracy of relative binding free energy perturbation (RBFEP) calculations
+          by introducing intermediate molecules between structurally distant compound pairs.
+          Large topological transformations — such as scaffold hops or ring insertions/deletions — are decomposed into
+          smaller, more tractable perturbation steps via automatically generated intermediates.
+        </p>
+        <h3>Pair Mode</h3>
+        <p>
+          Given two input molecules (source and target), finds intermediate compounds and constructs a perturbation map
+          connecting source → intermediates → target, with thermodynamic cycles for reliability.
+        </p>
+        <h3>Map Mode</h3>
+        <p>
+          Given a set of molecules (e.g., a congeneric series), constructs an optimized perturbation map covering all
+          input compounds, automatically resolving difficult edges by introducing intermediates.
+        </p>
+        <h3>Development</h3>
+        <p>
+          Developed by Kairi Furui, Takafumi Shimizu, Yutaka Akiyama, S. Roy Kimura, Yoh Terada, and Masahito Ohue
+          (Institute of Science Tokyo / Ohue Lab).
+        </p>
+      </section>
+
+      <section id="about-tutorial" class="modal-section">
+        <h2>Tutorial</h2>
+        <h3>Pair Mode</h3>
+        <ol>
+          <li>Enter SMILES for the <strong>Source</strong> and <strong>Target</strong> molecules, or switch to SDF mode and upload SDF files.</li>
+          <li>
+            Optionally adjust parameters:
+            <ul>
+              <li><em>Search Parameters</em> — control intermediate generation (atom modification, ring capping, MCS seed, etc.).</li>
+              <li><em>Map Generation</em> — control path length, rough/min score thresholds, and optimal path mode.</li>
+            </ul>
+          </li>
+          <li>Click <strong>Generate</strong>. PairMap will exhaustively generate intermediates, find the optimal path, and build the perturbation map.</li>
+          <li>In the result graph, <strong>click a node</strong> to inspect the 3D structure; <strong>click an edge</strong> to see the MCS-highlighted structural difference between the two endpoint molecules.</li>
+          <li>Download the results: <em>Map SDF</em> (molecules on the map), <em>Links CSV</em> (edges with scores), or <em>All Intermediates SDF</em>.</li>
+        </ol>
+        <h3>Map Mode</h3>
+        <ol>
+          <li>Upload a multi-molecule SDF file containing your compound series, or click <strong>Example</strong> to load the p38 example set.</li>
+          <li>Review the molecule list. You can also add individual molecules by SMILES or remove entries.</li>
+          <li>Optionally adjust <em>Map Parameters</em> (similarity threshold, max degree, max path length, etc.).</li>
+          <li>Click <strong>Submit Job</strong>. The job will be queued and processed on the server.</li>
+          <li>Monitor progress in the <strong>Jobs</strong> table (use <em>Refresh</em> or wait for auto-update). When the status is <em>completed</em>, click <strong>View</strong>.</li>
+          <li>In the result graph, <strong>click an edge</strong> to view the MCS difference (common / deleted / inserted atoms highlighted) between the two connected molecules.</li>
+          <li>Download: <em>Intermediates SDF</em>, <em>Links CSV</em>, or <em>Map JSON</em>.</li>
+        </ol>
+      </section>
+
+      <section id="about-citation" class="modal-section">
+        <h2>Citation</h2>
+        <p>If you use PairMap in your research, please cite:</p>
+        <div class="citation-box">
+          Furui, K.; Shimizu, T.; Akiyama, Y.; Kimura, S. R.; Terada, Y.; Ohue, M.
+          PairMap: An Intermediate Insertion Approach for Improving the Accuracy of Relative Free Energy Perturbation Calculations for Distant Compound Transformations.
+          <em>J. Chem. Inf. Model.</em> <strong>2025</strong>, <em>65</em> (2), 705–721.
+          DOI: <a href="https://doi.org/10.1021/acs.jcim.4c01634" target="_blank" rel="noopener">10.1021/acs.jcim.4c01634</a>
+        </div>
+        <div class="bibtex-wrap">
+          <div class="bibtex-header">
+            <span class="bibtex-label">BibTeX</span>
+            <button class="btn btn-secondary btn-sm" id="copy-bibtex-btn">Copy</button>
+          </div>
+          <pre class="bibtex-block" id="bibtex-text">@article{Furui2025-uy,
+  author    = {Furui, Kairi and Shimizu, Takafumi and Akiyama, Yutaka and
+               Kimura, S Roy and Terada, Yoh and Ohue, Masahito},
+  title     = {{PairMap: An intermediate insertion approach for improving the
+               accuracy of relative free energy perturbation calculations for
+               distant compound transformations}},
+  journal   = {J. Chem. Inf. Model.},
+  publisher = {American Chemical Society},
+  volume    = {65},
+  number    = {2},
+  pages     = {705--721},
+  month     = jan,
+  year      = {2025},
+  url       = {https://pubs.acs.org/doi/full/10.1021/acs.jcim.4c01634},
+  doi       = {10.1021/acs.jcim.4c01634},
+}</pre>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
 
 <script src="js/common.js"></script>
 <script src="js/pair.js"></script>

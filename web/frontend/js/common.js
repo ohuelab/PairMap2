@@ -386,6 +386,58 @@ function renderOverlaySidebar(sidebarId, nodesData) {
   }
 }
 
+/* ── About modal ───────────────────────────────────────────────────────────── */
+document.getElementById('about-btn').onclick = () =>
+  document.getElementById('about-modal').classList.add('visible');
+
+document.getElementById('about-close').onclick = () =>
+  document.getElementById('about-modal').classList.remove('visible');
+
+document.getElementById('about-modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('about-modal'))
+    document.getElementById('about-modal').classList.remove('visible');
+});
+
+document.querySelectorAll('.modal-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const key = tab.dataset.about;
+    document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.modal-section').forEach(s => s.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(`about-${key}`).classList.add('active');
+  });
+});
+
+document.getElementById('copy-bibtex-btn').addEventListener('click', () => {
+  const text = document.getElementById('bibtex-text').textContent;
+  const btn = document.getElementById('copy-bibtex-btn');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+    }).catch(() => {
+      fallbackCopy(text, btn);
+    });
+  } else {
+    fallbackCopy(text, btn);
+  }
+});
+
+function fallbackCopy(text, btn) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+  } catch { /* silent */ }
+  document.body.removeChild(ta);
+}
+
 /**
  * Render edge MCS info in the sidebar.
  * Fetches /api/pair/{sessionId}/mcs/{nodeA}/{nodeB} and displays SVGs + legend.

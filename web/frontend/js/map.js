@@ -33,7 +33,7 @@ document.getElementById('map-dropzone').addEventListener('drop', async (e) => {
 
 document.getElementById('map-example-btn').addEventListener('click', async () => {
   try {
-    const res = await fetch('/examples/p38_example.sdf');
+    const res = await fetch(API_BASE + '/examples/p38_example.sdf');
     if (!res.ok) throw new Error('Failed to load example');
     const blob = await res.blob();
     const file = new File([blob], 'p38_example.sdf', { type: 'chemical/x-mdl-sdfile' });
@@ -303,8 +303,32 @@ async function viewMapGraph(jobId) {
 
     const toolbar = document.getElementById('map-download-toolbar');
     toolbar.style.display = 'flex';
-    const dlBtn = document.getElementById('map-download-sdf');
-    dlBtn.onclick = () => { window.location.href = API_BASE + `/api/map/jobs/${jobId}/artifacts/intermediate_mols.sdf`; };
+
+    document.getElementById('map-download-sdf').onclick = () => {
+      window.location.href = API_BASE + `/api/map/jobs/${jobId}/artifacts/intermediate_mols.sdf`;
+    };
+
+    document.getElementById('map-download-links-csv').onclick = () => {
+      const edges = data.elements.filter(e => e.group === 'edges');
+      const rows = ['source,target,similarity,bad_edge'];
+      for (const e of edges) {
+        const { source, target, similarity, bad_edge } = e.data;
+        rows.push(`${source},${target},${similarity != null ? similarity : ''},${bad_edge ? 'true' : 'false'}`);
+      }
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `map_links_${jobId.slice(0, 8)}.csv`;
+      a.click(); URL.revokeObjectURL(url);
+    };
+
+    document.getElementById('map-download-json').onclick = () => {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `map_graph_${jobId.slice(0, 8)}.json`;
+      a.click(); URL.revokeObjectURL(url);
+    };
 
     const nodes = data.elements.filter(e => e.group === 'nodes').length;
     const edges = data.elements.filter(e => e.group === 'edges').length;
