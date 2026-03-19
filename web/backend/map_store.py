@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -95,6 +95,26 @@ def update_job(job_id: str, **kwargs) -> None:
     values = list(updates.values()) + [job_id]
     with _conn() as con:
         con.execute(f"UPDATE map_jobs SET {set_clause} WHERE id = ?", values)
+
+
+def purge_old_jobs(max_age_days: int = 90) -> list[str]:
+    """Delete map_jobs records and artifacts older than max_age_days."""
+    import shutil
+    from .map_worker import MAP_JOBS_DIR
+
+    cutoff = (datetime.utcnow() - timedelta(days=max_age_days)).isoformat()
+    with _conn() as con:
+        rows = con.execute(
+            "SELECT id FROM map_jobs WHERE created_at < ?", (cutoff,)
+        ).fetchall()
+        purged = [r["id"] for r in rows]
+        if purged:
+            con.execute("DELETE FROM map_jobs WHERE created_at < ?", (cutoff,))
+    for job_id in purged:
+        job_dir = MAP_JOBS_DIR / job_id
+        if job_dir.exists():
+            shutil.rmtree(job_dir)
+    return purged
 
 
 def _row_to_status(row: sqlite3.Row) -> MapJobStatus:

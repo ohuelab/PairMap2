@@ -425,10 +425,13 @@ document.getElementById('copy-bibtex-btn').addEventListener('click', () => {
 
 /* ── Session ID + fetch wrapper ────────────────────────────────────────────── */
 function getSessionId() {
-  let sid = sessionStorage.getItem('pairmap_session_id');
-  if (!sid) {
+  const MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+  let sid = localStorage.getItem('pairmap_session_id');
+  const ts  = Number(localStorage.getItem('pairmap_session_ts')) || 0;
+  if (!sid || (Date.now() - ts > MAX_AGE_MS)) {
     sid = crypto.randomUUID();
-    sessionStorage.setItem('pairmap_session_id', sid);
+    localStorage.setItem('pairmap_session_id', sid);
+    localStorage.setItem('pairmap_session_ts', String(Date.now()));
   }
   return sid;
 }

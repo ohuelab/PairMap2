@@ -39,6 +39,10 @@ app.include_router(map_routes.router, prefix="/api/map")
 async def startup() -> None:
     job_store.init_db()
     map_store.init_db()
+    purged = map_store.purge_old_jobs()
+    if purged:
+        import logging
+        logging.getLogger(__name__).info("Purged %d old map jobs", len(purged))
 
 
 # Serve frontend SPA
