@@ -13,7 +13,6 @@ from pathlib import Path
 
 from rdkit import Chem
 
-from pairmap.intermediate_graph import get_similarity
 from pairmap2 import Pipeline, PipelineConfig
 
 DATA_DIR = Path(__file__).parents[1] / "benchmarks" / "data"
@@ -56,13 +55,16 @@ def run_pipeline(source, target, config=None):
         config = PipelineConfig(save_output=False, verbose=False)
 
     mols = [source, target]
-    sim = get_similarity(source, target, {})
+    pipeline = Pipeline(config)
+    # Compute initial similarity without prefilters so that very dissimilar
+    # molecule pairs still get a non-zero LOMAP score for the initial edge.
+    from pairmap2.score_engine import ScoreEngine
+    sim = ScoreEngine(tanimoto_prefilter=0.0, atom_count_diff_threshold=10000).get_score(source, target, {})
     bad_edge = sim < config.similarity_threshold
     df = pd.DataFrame(
         [("source", "target", sim, bad_edge)],
         columns=["Node1", "Node2", "score", "BadEdge"],
     )
-    pipeline = Pipeline(config)
     return pipeline.run_from_moldf(mols, df)
 
 

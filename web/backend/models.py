@@ -115,7 +115,6 @@ class PairRequest(BaseModel):
     smiles_b: str
     name_a: str = "Molecule A"
     name_b: str = "Molecule B"
-    engine: str = "v1"
     search: SearchConfig = Field(default_factory=SearchConfig)
     mapgen: MapGenConfig = Field(default_factory=MapGenConfig)
 

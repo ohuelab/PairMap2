@@ -11,7 +11,7 @@ Usage::
 import logging
 from typing import Optional
 
-from pairmap.intermediate_graph import IntermediateGraphManager
+from .intermediate_graph import IntermediateGraphManager
 
 from .score_engine import ScoreEngine
 from .score_cache import ScoreCache

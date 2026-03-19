@@ -18,7 +18,6 @@ class CacheEntry:
     score_matrix: Any | None
     name_a: str
     name_b: str
-    engine: str = "v1"
     created_at: float = field(default_factory=time.time)
     last_accessed: float = field(default_factory=time.time)
 

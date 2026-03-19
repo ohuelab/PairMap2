@@ -27,9 +27,9 @@ def _embed_mol(mol):
     return mol
 
 
-def _run_search(mol_a, mol_b, name_a: str, name_b: str, search: SearchConfig, engine: str = "v1") -> str:
+def _run_search(mol_a, mol_b, name_a: str, name_b: str, search: SearchConfig) -> str:
     """Run intermediate search, embed conformers, cache results, return session_id."""
-    from pairmap import SearchIntermediates
+    from pairmap2 import SearchIntermediates
 
     s = search
     si = SearchIntermediates(
@@ -66,56 +66,32 @@ def _run_search(mol_a, mol_b, name_a: str, name_b: str, search: SearchConfig, en
         score_matrix=None,
         name_a=name_a,
         name_b=name_b,
-        engine=engine,
     )
     return cache.store(entry)
 
 
 def _run_map(session_id: str, mapgen: MapGenConfig) -> dict:
     """Build perturbation map from cached intermediates, return cytoscape data."""
-    from pairmap import MapGenerator
+    from pairmap2 import MapGenerator
 
     entry = cache.get(session_id)
     if entry is None:
         raise ValueError(f"Session {session_id!r} not found or expired")
 
     m = mapgen
-    engine = getattr(entry, 'engine', 'v1')
 
-    if engine == "v2":
-        if entry.score_matrix is None:
-            from pairmap2.score_engine import ScoreEngine
-            from pairmap2.score_cache import ScoreCache
-            # jobs=1: avoid multiprocessing Pool spawn overhead in web context (macOS spawn)
-            se = ScoreEngine(cache=ScoreCache(None), jobs=1)
-            score_matrix = se.get_score_matrix(entry.intermediates, {})
-        else:
-            score_matrix = entry.score_matrix
-        mg = MapGenerator(
-            entry.intermediates,
-            custom_score_matrix=score_matrix,
-            maxOptimalPathLength=m.maxOptimalPathLength,
-            roughScoreThreshold=m.roughScoreThreshold,
-            minScoreThreshold=m.minScoreThreshold,
-            optimal_path_mode=m.optimal_path_mode,
-            CycleLinkThreshold=m.CycleLinkThreshold,
-            squared_sum=m.squared_sum,
-            source_node_index=0,
-            target_node_index=1,
-        )
-    else:
-        mg = MapGenerator(
-            entry.intermediates,
-            custom_score_matrix=entry.score_matrix,
-            maxOptimalPathLength=m.maxOptimalPathLength,
-            roughScoreThreshold=m.roughScoreThreshold,
-            minScoreThreshold=m.minScoreThreshold,
-            optimal_path_mode=m.optimal_path_mode,
-            CycleLinkThreshold=m.CycleLinkThreshold,
-            squared_sum=m.squared_sum,
-            source_node_index=0,
-            target_node_index=1,
-        )
+    mg = MapGenerator(
+        entry.intermediates,
+        custom_score_matrix=entry.score_matrix,
+        maxOptimalPathLength=m.maxOptimalPathLength,
+        roughScoreThreshold=m.roughScoreThreshold,
+        minScoreThreshold=m.minScoreThreshold,
+        optimal_path_mode=m.optimal_path_mode,
+        CycleLinkThreshold=m.CycleLinkThreshold,
+        squared_sum=m.squared_sum,
+        source_node_index=0,
+        target_node_index=1,
+    )
 
     graph = mg.build_map()
     entry.score_matrix = mg.score_matrix
@@ -140,14 +116,13 @@ def _run_pair_smiles(req: PairRequest) -> dict:
     mol_a = _embed_mol(mol_a)
     mol_b = _embed_mol(mol_b)
 
-    session_id = _run_search(mol_a, mol_b, req.name_a, req.name_b, req.search, engine=req.engine)
+    session_id = _run_search(mol_a, mol_b, req.name_a, req.name_b, req.search)
     return _run_map(session_id, req.mapgen)
 
 
 def _run_pair_sdf(
     file_a_bytes: bytes, file_b_bytes: bytes,
     search: SearchConfig, mapgen: MapGenConfig,
-    engine: str = "v1",
 ) -> dict:
     from rdkit.Chem import ForwardSDMolSupplier
 
@@ -166,7 +141,7 @@ def _run_pair_sdf(
     name_a = (mol_a.GetProp("_Name") if mol_a.HasProp("_Name") else "").strip() or "Molecule A"
     name_b = (mol_b.GetProp("_Name") if mol_b.HasProp("_Name") else "").strip() or "Molecule B"
 
-    session_id = _run_search(mol_a, mol_b, name_a, name_b, search, engine=engine)
+    session_id = _run_search(mol_a, mol_b, name_a, name_b, search)
     return _run_map(session_id, mapgen)
 
 
@@ -199,7 +174,6 @@ async def run_pair_sdf(
     file_b: UploadFile,
     search: str = Form("{}"),
     mapgen: str = Form("{}"),
-    engine: str = Form("v1"),
 ):
     """Run PairMap using SDF files that already contain 3D coordinates."""
     try:
@@ -213,7 +187,7 @@ async def run_pair_sdf(
     loop = asyncio.get_event_loop()
     try:
         result = await loop.run_in_executor(
-            None, partial(_run_pair_sdf, bytes_a, bytes_b, search_cfg, mapgen_cfg, engine)
+            None, partial(_run_pair_sdf, bytes_a, bytes_b, search_cfg, mapgen_cfg)
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))

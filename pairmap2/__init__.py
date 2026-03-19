@@ -8,10 +8,14 @@ Public API::
 """
 from .pipeline import Pipeline
 from .types import PipelineConfig, PipelineResult, StageTimings
+from .intermediate_search import SearchIntermediates
+from .map_generator import MapGenerator
 
 __all__ = [
     "Pipeline",
     "PipelineConfig",
     "PipelineResult",
     "StageTimings",
+    "SearchIntermediates",
+    "MapGenerator",
 ]

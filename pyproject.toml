@@ -4,7 +4,6 @@ version = "0.2.0"
 description = "PairMap2 — high-speed FEP intermediate insertion tool with web UI"
 requires-python = ">=3.12"
 dependencies = [
-    "pairmap @ git+https://github.com/ohuelab/PairMap.git",
     "lomap2 @ git+https://github.com/OpenFreeEnergy/Lomap@v3.0.1",
     "networkx>=3.0",
     "numpy>=1.24",

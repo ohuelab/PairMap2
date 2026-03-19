@@ -1,13 +1,11 @@
 """PairMap2 engine — wraps pairmap2.Pipeline."""
 from __future__ import annotations
 
-import time
-
 from .base import EngineResult, PairMapEngine
 
 
-class PairMapV2Engine(PairMapEngine):
-    """Wraps pairmap2.Pipeline (the improved scoring engine)."""
+class PairMapDefaultEngine(PairMapEngine):
+    """Wraps pairmap2.Pipeline."""
 
     def run(self, input_dir: str, config: dict) -> EngineResult:
         from pairmap2 import Pipeline, PipelineConfig
