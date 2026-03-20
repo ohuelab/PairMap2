@@ -54,7 +54,7 @@ def compute_score(pair):
     return i, j, score
 
 
-def get_score_matrix(mols, options=None, use_seed=True, jobs=1):
+def get_score_matrix(mols, options=None, use_seed=True, jobs=-1):
     if options is None:
         options = {}
     if use_seed:
@@ -85,7 +85,7 @@ def get_score_matrix(mols, options=None, use_seed=True, jobs=1):
 def calc_mcs(mols):
     mcs = rdFMCS.FindMCS(
         mols,
-        timeout=1200,
+        timeout=30,
         atomCompare=rdFMCS.AtomCompare.CompareAny,
         bondCompare=rdFMCS.BondCompare.CompareAny,
         matchValences=False,

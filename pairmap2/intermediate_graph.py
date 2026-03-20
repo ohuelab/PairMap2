@@ -62,6 +62,8 @@ class IntermediateGraphManager:
         self.config.setdefault("optimal_path_mode", True)
         self.config.setdefault("minScoreThreshold", 0.2)
         self.config.setdefault("verbose", True)
+        self.config.setdefault("search_mode", "random")
+        self.config.setdefault("search_random_seed", 42)
         self.lomap_options = self.config.get("lomap_options", {})
 
         self.get_score_matrix = custom_get_score_matrix
@@ -69,7 +71,10 @@ class IntermediateGraphManager:
 
     def generate_intermediate_path(self, node_mols, new_graph, intermediates_avail, options):
         """Insert a chain of intermediate molecules into 'new_graph' if not already present."""
-        custom_score_matrix = self.get_score_matrix(list(intermediates_avail), options, jobs=self.config["jobs"]) if self.get_score_matrix is not None else None
+        custom_score_matrix = None
+        if self.get_score_matrix is not None:
+            custom_score_matrix = self.get_score_matrix(list(intermediates_avail), options, jobs=self.config["jobs"])
+
         mapGen = MapGenerator(
             intermediates_avail,
             maxOptimalPathLength=self.config["maxOptimalPathLength"],
@@ -186,6 +191,8 @@ class IntermediateGraphManager:
                 intermediate_name_prefix=self.config.get("intermediate_name_prefix", "Intermediate"),
                 use_seed=self.config.get("use_seed", True),
                 max_intermediate=self.config['max_intermediate'],
+                search_mode=self.config.get("search_mode", "random"),
+                search_random_seed=self.config.get("search_random_seed", 42),
             )
             intermediates_avail = search_intm.search()
 
@@ -199,7 +206,9 @@ class IntermediateGraphManager:
             if target_smiles != Chem.MolToSmiles(intermediates_avail[TARGET_INDEX]):
                 raise ValueError("Target ligand changed after search.")
 
-            out = self.generate_intermediate_path(node_mols, new_graph, intermediates_avail, self.config)
+            out = self.generate_intermediate_path(
+                node_mols, new_graph, intermediates_avail, self.lomap_options,
+            )
             if out is None:
                 logger.info("No new intermediates added. Skipping.")
                 continue
@@ -225,7 +234,8 @@ class IntermediateGraphManager:
                                 intermediates_novel.append(mol)
 
                 intermediates_avail = intermediates_novel
-                out = self.generate_intermediate_path(node_mols, new_graph, intermediates_avail, self.config)
+                # Retry without traces/depth_map (subset of original, use full matrix)
+                out = self.generate_intermediate_path(node_mols, new_graph, intermediates_avail, self.lomap_options)
                 if out is not None:
                     new_graph, node_mols, node_remapping, additional_intermediates = out
 

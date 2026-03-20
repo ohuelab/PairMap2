@@ -152,7 +152,7 @@ class ScoreEngine:
         # Pre-compute MCS seed for all molecules (like Phase1 calc_mcs).
         # Provides a starting substructure so individual LOMAP MCS calls converge faster.
         _mcs_result = rdFMCS.FindMCS(
-            mols, timeout=1200,
+            mols, timeout=30,
             atomCompare=rdFMCS.AtomCompare.CompareAny,
             bondCompare=rdFMCS.BondCompare.CompareAny,
             matchValences=False, ringMatchesRingOnly=True,
@@ -192,3 +192,4 @@ class ScoreEngine:
                 self.cache.put(smiles_list[i], smiles_list[j], score, options)
 
         return score_matrix
+

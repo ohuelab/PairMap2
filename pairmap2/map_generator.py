@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class MapGenerator:
-    def __init__(self, intermediate_list, optimal_path_mode=False, maxPathLength=4, cycleLength=3, maxOptimalPathLength=3, roughMaxPathLength=2, roughScoreThreshold=0.5, minScoreThreshold=0.2, CycleLinkThreshold=0.6, forceOptimalPathLength=False, chunkScale=10, squared_sum=True, source_node_index=0, target_node_index=1, jobs=0, custom_score_matrix=None, verbose=False, lomap_options=None):
+    def __init__(self, intermediate_list, optimal_path_mode=False, maxPathLength=4, cycleLength=3, maxOptimalPathLength=3, roughMaxPathLength=2, roughScoreThreshold=0.5, minScoreThreshold=0.2, CycleLinkThreshold=0.6, forceOptimalPathLength=False, chunkScale=10, squared_sum=True, source_node_index=0, target_node_index=1, jobs=-1, custom_score_matrix=None, verbose=False, lomap_options=None):
         """
         :param intermediate_list: List of RDKit molecules representing intermediates
         :param optimal_path_mode: Output map contains only the optimal path (default: False)
@@ -47,6 +47,7 @@ class MapGenerator:
             self.score_matrix = custom_score_matrix
         else:
             self.score_matrix = None
+
         self.N = len(self.intermediate_list)
         self.jobs = jobs
         self.verbose = verbose
@@ -72,6 +73,11 @@ class MapGenerator:
         self.found_links = [(source_node_index, target_node_index)]
         self.cycle_links = []
 
+    def _get_score(self, u, v):
+        if self.score_matrix is not None:
+            return self.score_matrix[u][v]
+        return 0.0
+
     def make_optimal_path_graph(self):
         graph = nx.Graph()
         for i, name in enumerate(self.intermediate_names):
@@ -81,7 +87,7 @@ class MapGenerator:
         for i in range(len(self.found_path) - 1):
             u = self.found_path[i]
             v = self.found_path[i + 1]
-            graph.add_edge(u, v, score=self.score_matrix[u][v])
+            graph.add_edge(u, v, score=self._get_score(u, v))
         return graph
 
     def make_graph(self, min_score=None, found_links=None):
@@ -93,6 +99,7 @@ class MapGenerator:
         for i, name in enumerate(self.intermediate_names):
             graph.add_node(i)
             graph.nodes[i]['label'] = name
+
         for u, v in itertools.combinations(range(self.N), 2):
             score = self.score_matrix[u][v]
             round_score = np.round(score, decimals=2)
@@ -102,6 +109,7 @@ class MapGenerator:
         return graph
 
     def find_optimal_path(self):
+        # Rough check: informational warning only
         graph = self.make_graph(self.roughScoreThreshold)
         source_node_index, target_node_index = self.source_node_index, self.target_node_index
         has_path = nx.has_path(graph, source_node_index, target_node_index)
@@ -112,21 +120,66 @@ class MapGenerator:
                 logger.info("Less need to introduce pairmap")
 
         graph = self.make_graph()
-        all_simple_paths = list(nx.all_simple_paths(graph, source_node_index, target_node_index, cutoff=self.maxOptimalPathLength))
-        if self.forceOptimalPathLength:
-            all_simple_paths = [path for path in all_simple_paths if len(path) == self.maxOptimalPathLength + 1]
-        if len(all_simple_paths) == 0:
+
+        # Bellman-Ford DP: dist[h][v] = min cost to reach v from src in exactly h hops
+        # weight(u,v) = 1/(score^2 + 1e-5) for squared_sum=True, else -score
+        K = self.maxOptimalPathLength
+        src = source_node_index
+        tgt = target_node_index
+        N = self.N
+        INF = float('inf')
+
+        dist = [[INF] * N for _ in range(K + 1)]
+        prev = [[(None, None)] * N for _ in range(K + 1)]
+        dist[0][src] = 0.0
+
+        for h in range(1, K + 1):
+            for u, v, data in graph.edges(data=True):
+                score = data['score']
+                if self.squared_sum:
+                    w = 1.0 / (score ** 2 + 1e-5)
+                else:
+                    w = -score
+                # u -> v
+                if dist[h - 1][u] < INF:
+                    new_cost = dist[h - 1][u] + w
+                    if new_cost < dist[h][v]:
+                        dist[h][v] = new_cost
+                        prev[h][v] = (u, h - 1)
+                # v -> u (undirected)
+                if dist[h - 1][v] < INF:
+                    new_cost = dist[h - 1][v] + w
+                    if new_cost < dist[h][u]:
+                        dist[h][u] = new_cost
+                        prev[h][u] = (v, h - 1)
+
+        # Find best hop count
+        best_h_range = [K] if self.forceOptimalPathLength else range(1, K + 1)
+        best_cost = INF
+        best_h = None
+        for h in best_h_range:
+            if dist[h][tgt] < best_cost:
+                best_cost = dist[h][tgt]
+                best_h = h
+
+        if best_h is None or best_cost == INF:
             raise Exception('No path found, please check the input.')
-        path_scores_list = []
-        for path in all_simple_paths:
-            path_scores = [graph.get_edge_data(path[i], path[i + 1])['score'] for i in range(len(path) - 1)]
-            path_scores_list.append(sorted(path_scores))
-        if self.squared_sum:
-            sum_scores = [np.sum(1 / (np.array(scores) ** 2 + 1e-5)) for scores in path_scores_list]
-        else:
-            sum_scores = [np.sum(scores) for scores in path_scores_list]
-        best_idx = np.argmin(sum_scores)
-        found_path = all_simple_paths[best_idx]
+
+        # Reconstruct path via prev pointers
+        path = []
+        v = tgt
+        h = best_h
+        while v != src:
+            path.append(v)
+            u, h_prev = prev[h][v]
+            if u is None:
+                raise Exception('Path reconstruction failed.')
+            v = u
+            h = h_prev
+        path.append(src)
+        path.reverse()
+
+        found_path = path
         self.found_path = found_path
         self.found_links = [
             (found_path[i], found_path[i + 1]) if found_path[i] < found_path[i + 1]

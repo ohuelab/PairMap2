@@ -14,6 +14,7 @@ from pathlib import Path
 from rdkit import Chem
 
 from pairmap2 import Pipeline, PipelineConfig
+from pairmap2.score_engine import ScoreEngine
 
 DATA_DIR = Path(__file__).parents[1] / "benchmarks" / "data"
 
@@ -188,3 +189,126 @@ def test_quality_vs_reference(case_name):
     for i in range(len(path) - 1):
         score = final_graph[path[i]][path[i + 1]].get("similarity", 0)
         assert score > 0, f"Edge ({path[i]},{path[i+1]}) has zero/negative score for {case_name}"
+
+
+# ---------------------------------------------------------------------------
+# Edge-score quality: optimized vs baseline
+# ---------------------------------------------------------------------------
+
+def _make_mgr_random():
+    """Create IntermediateGraphManager for random search + full matrix (N=500)."""
+    from pairmap2.intermediate_graph import IntermediateGraphManager
+    from pairmap2.score_engine import ScoreEngine
+    from pairmap2.score_cache import ScoreCache
+
+    se = ScoreEngine(cache=ScoreCache(None), jobs=-1)
+
+    def _get_similarity(moli, molj, options=None):
+        return se.get_score(moli, molj, options or {})
+
+    def _get_score_matrix(mols, options, jobs=None):
+        return se.get_score_matrix(mols, options or {})
+
+    return IntermediateGraphManager(
+        custom_get_similarity=_get_similarity,
+        custom_get_score_matrix=_get_score_matrix,
+        similarity_threshold=0.6,
+        max_intermediate=500,
+        jobs=-1,
+        maxOptimalPathLength=4,
+        roughScoreThreshold=0.5,
+        optimal_path_mode=True,
+        minScoreThreshold=0.2,
+        verbose=False,
+        save_output=False,
+        search_mode="random",
+        search_random_seed=42,
+    )
+
+
+def _compute_edge_weight(score):
+    return 1.0 / (score ** 2 + 1e-5)
+
+
+def _get_optimal_path(graph):
+    import networkx as nx
+
+    def weight_fn(u, v, d):
+        score = d.get("similarity", d.get("score", 0.0))
+        return _compute_edge_weight(score) if score > 0 else 1e10
+
+    try:
+        return nx.dijkstra_path(graph, 0, 1, weight=weight_fn)
+    except (nx.NetworkXNoPath, nx.NodeNotFound):
+        return None
+
+
+@pytest.mark.parametrize("case_name", CASES)
+@pytest.mark.slow
+def test_edge_scores_vs_baseline(case_name):
+    """Optimized pipeline path cost must be within 10% of BFS baseline.
+
+    Requires baseline_edges.json to be pre-generated via:
+        python benchmarks/generate_baseline_edges.py
+
+    If baseline is missing, the test is skipped.
+    """
+    baseline_path = DATA_DIR / case_name / "baseline_edges.json"
+    if not baseline_path.exists():
+        pytest.skip(
+            f"baseline_edges.json not found for {case_name}. "
+            "Run: python benchmarks/generate_baseline_edges.py"
+        )
+
+    baseline = json.loads(baseline_path.read_text())
+    baseline_cost = baseline["path_cost"]
+    baseline_path_len = baseline["path_length"]
+
+    source, target, _, _ = load_case(case_name)
+
+    mgr = _make_mgr_random()
+    sim = ScoreEngine(tanimoto_prefilter=0.0, atom_count_diff_threshold=10000).get_score(
+        source, target, {}
+    )
+    bad_edge = sim < 0.6
+    df = pd.DataFrame(
+        [("source", "target", sim, bad_edge)],
+        columns=["Node1", "Node2", "score", "BadEdge"],
+    )
+    new_graphs, _ = mgr.run_from_moldf([source, target], df)
+    final_graph = new_graphs[-1]
+
+    # Optimal path in the optimized result
+    opt_path = _get_optimal_path(final_graph)
+    assert opt_path is not None, f"No path from source to target for {case_name}"
+
+    opt_cost = sum(
+        _compute_edge_weight(
+            final_graph[opt_path[i]][opt_path[i + 1]].get(
+                "similarity",
+                final_graph[opt_path[i]][opt_path[i + 1]].get("score", 0.0),
+            )
+        )
+        for i in range(len(opt_path) - 1)
+    )
+    opt_path_len = len(opt_path) - 1
+
+    # Path cost must not be more than 10% worse than baseline
+    assert opt_cost <= baseline_cost * 1.1, (
+        f"{case_name}: optimized path cost {opt_cost:.4f} exceeds "
+        f"baseline {baseline_cost:.4f} * 1.1 = {baseline_cost * 1.1:.4f}"
+    )
+
+    # Path length must not exceed baseline by more than 1
+    assert opt_path_len <= baseline_path_len + 1, (
+        f"{case_name}: optimized path length {opt_path_len} exceeds "
+        f"baseline {baseline_path_len} + 1"
+    )
+
+    # All path edges must meet min_score_threshold (0.2)
+    for i in range(len(opt_path) - 1):
+        u, v = opt_path[i], opt_path[i + 1]
+        score = final_graph[u][v].get("similarity", final_graph[u][v].get("score", 0.0))
+        assert score >= 0.2, (
+            f"{case_name}: path edge ({u},{v}) has score {score:.4f} < min_score_threshold 0.2"
+        )

@@ -18,6 +18,8 @@ def _compute_aligned_svgs(node_mols: dict) -> dict:
     except ImportError:
         return {}
 
+    AllChem.SetPreferCoordGen(True)
+
     # Generate clean 2D structures from canonical SMILES
     mols_2d: dict = {}
     for nid, mol in node_mols.items():

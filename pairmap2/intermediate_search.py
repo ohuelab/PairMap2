@@ -1,12 +1,13 @@
 """intermediate_search -- BFS-based intermediate molecule search."""
 import copy
 import logging
+import random
 from collections import deque
 
 from lomap.mcs import MCS
 
 from rdkit import Chem
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, rdFMCS
 from rdkit.Chem.rdchem import RWMol
 
 from .intermediate_generator import IntermediateGenerator
@@ -19,7 +20,7 @@ __all__ = ["SearchIntermediates"]
 
 
 class SearchIntermediates:
-    def __init__(self, source_ligand, target_ligand, verbose=False, is_atom_modfication_enabled=True, cap_ring_with_carbon=True, cap_ring_with_hydrogen=True, no_backward_search=False, intermediate_name_prefix='intermediate', use_seed=True, score_config=None, ionize=False, obabel_path='obabel', max_intermediate=100):
+    def __init__(self, source_ligand, target_ligand, verbose=False, is_atom_modfication_enabled=True, cap_ring_with_carbon=True, cap_ring_with_hydrogen=True, no_backward_search=False, intermediate_name_prefix='intermediate', use_seed=True, score_config=None, ionize=False, obabel_path='obabel', max_intermediate=100, search_mode='random', search_random_seed=42):
         # RemoveHs already returns a new molecule object, so deepcopy is not needed here
         self.source_ligand = RWMol(AllChem.RemoveHs(source_ligand))
         self.target_ligand = RWMol(AllChem.RemoveHs(target_ligand))
@@ -43,10 +44,24 @@ class SearchIntermediates:
             verbose=verbose,
         )
 
-        self.baseMC = self.MCS(source_ligand, target_ligand)
-        mcs = self.baseMC.mcs_mol
-        self.seedSmarts = Chem.MolToSmarts(mcs) if self.use_seed else ''
+        if self.use_seed:
+            _mcs_result = rdFMCS.FindMCS(
+                [AllChem.RemoveHs(copy.deepcopy(source_ligand)),
+                 AllChem.RemoveHs(copy.deepcopy(target_ligand))],
+                timeout=1,
+                atomCompare=rdFMCS.AtomCompare.CompareAny,
+                bondCompare=rdFMCS.BondCompare.CompareAny,
+                matchValences=False, ringMatchesRingOnly=True,
+                completeRingsOnly=True, matchChiralTag=False,
+            )
+            self.seedSmarts = _mcs_result.smartsString if _mcs_result.smartsString else ''
+        else:
+            self.seedSmarts = ''
         self.max_intermediate = max_intermediate
+
+        self.search_mode = search_mode
+        # Single seeded RNG shared across forward and backward searches for determinism
+        self._rng = random.Random(search_random_seed)
 
     def MCS(self, source_ligand, target_ligand):
         try:
@@ -63,20 +78,36 @@ class SearchIntermediates:
             source_ligand = copy.deepcopy(self.target_ligand)
             target_ligand = copy.deepcopy(self.source_ligand)
 
-        q = deque()
-        q.append(source_ligand)
+        source_smiles = Chem.MolToSmiles(source_ligand)
+        target_smiles = Chem.MolToSmiles(target_ligand)
+
         intermediate_info_list = [self.get_intermediate_info(source_ligand)]
         intermediate_info_list += [self.get_intermediate_info(target_ligand)]
         source_index = 0
         target_index = 1
-        smiles_list = [intermediate_info_list[source_index]['smiles'], intermediate_info_list[target_index]['smiles']]
-        smiles_to_idx = {smiles_list[0]: 0, smiles_list[1]: 1}
+        smiles_list = [source_smiles, target_smiles]
+        smiles_to_idx = {source_smiles: 0, target_smiles: 1}
         traces = [[source_index, target_index]]
+        depth_map = {source_smiles: 0, target_smiles: 0}
+
+        if self.search_mode == 'bfs':
+            q = deque([source_ligand])
+        else:
+            q = [source_ligand]
+
         while len(q) > 0 and (self.max_intermediate <= 0 or len(intermediate_info_list) < self.max_intermediate):
-            ligand = q.popleft()
+            if self.search_mode == 'bfs':
+                ligand = q.popleft()
+            else:
+                # Random selection with O(1) swap-with-last removal
+                idx = self._rng.randint(0, len(q) - 1)
+                q[idx], q[-1] = q[-1], q[idx]
+                ligand = q.pop()
+
             ligand = RWMol(ligand)
             smiles = Chem.MolToSmiles(ligand)
             ligand_index = smiles_to_idx[smiles]
+            ligand_depth = depth_map[smiles]
             MC = self.MCS(ligand, target_ligand)
             mcs_map = {a1: a2 for a1, a2 in MC.heavy_atom_mcs_map()}
             intermediates = self.generator.generate_intermediates(ligand, target_ligand, mcs_map)
@@ -89,13 +120,17 @@ class SearchIntermediates:
                     smiles_to_idx[info['smiles']] = new_idx
                     smiles_list.append(info['smiles'])
                     intermediate_info_list.append(info)
-                    q.append(intermediate)
+                    depth_map[info['smiles']] = ligand_depth + 1
+                    if self.search_mode == 'bfs':
+                        q.append(intermediate)
+                    else:
+                        q.append(intermediate)
                 intermediate_index = smiles_to_idx[info['smiles']]
                 traces.append([ligand_index, intermediate_index])
                 traces.append([intermediate_index, target_index])
                 if self.max_intermediate > 0 and len(intermediate_info_list) >= self.max_intermediate:
                     break
-        return intermediate_info_list, traces
+        return intermediate_info_list, traces, depth_map
 
     def get_intermediate_info(self, ligand):
         if Chem.MolToSmiles(Chem.MolFromSmiles(Chem.MolToSmiles(ligand))) != Chem.MolToSmiles(ligand):
@@ -132,6 +167,14 @@ class SearchIntermediates:
         self.intermediate_info_list = intermediate_info_list
         self.intermediate_smiles = intermediate_smiles
         self.intermediate_traces = intermediate_traces
+
+        # Merge depth maps: prefer forward depth; backward depth fills in unknowns
+        depth_map = dict(self.forward_depth_map)
+        for smi, d in self.backward_depth_map.items():
+            if smi not in depth_map:
+                depth_map[smi] = d
+        self.depth_map = depth_map
+
         return self.intermediate_info_list
 
     def show_result(self):
@@ -140,11 +183,11 @@ class SearchIntermediates:
             logger.info('Number of intermediates with the same formal charge: %d', len(self.intermediates))
 
     def search(self):
-        self.forward_intermediate_info_list, self.forward_traces = self.simplex_search('forward')
+        self.forward_intermediate_info_list, self.forward_traces, self.forward_depth_map = self.simplex_search('forward')
         if self.no_backward_search:
-            self.backward_intermediate_info_list, self.backward_traces = [], []
+            self.backward_intermediate_info_list, self.backward_traces, self.backward_depth_map = [], [], {}
         else:
-            self.backward_intermediate_info_list, self.backward_traces = self.simplex_search('backward')
+            self.backward_intermediate_info_list, self.backward_traces, self.backward_depth_map = self.simplex_search('backward')
 
         intermediate_info_list = self.merge_intermediate_info_list(self.intermediate_name_prefix)
         self.intermediates_all = [info['ligand'] for info in intermediate_info_list]

@@ -17,5 +17,10 @@ cache/
 # IDE
 .vscode/
 .idea/
-
+uv.lock
+.gitignore
 tmp
+local/local
+benchmarks/results
+baseline_edges.json
+benchmarks/data/Roca

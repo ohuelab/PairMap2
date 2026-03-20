@@ -42,6 +42,8 @@ class PipelineConfig:
     cap_ring_with_hydrogen: bool = True
     no_backward_search: bool = False
     use_seed: bool = True
+    search_mode: str = "random"  # "bfs" or "random"
+    search_random_seed: int = 42
 
     # output
     input_dir: str = "./input"

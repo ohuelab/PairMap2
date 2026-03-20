@@ -97,7 +97,7 @@ class SearchConfig(BaseModel):
     cap_ring_with_hydrogen: bool = True
     no_backward_search: bool = False
     use_seed: bool = True
-    max_intermediate: int = 100
+    max_intermediate: int = 50
     ionize: bool = False
 
 
