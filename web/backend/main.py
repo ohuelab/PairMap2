@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import job_store, map_store
+from . import executor, job_store, map_store
 from .routes import health, jobs, pair, map as map_routes
 
 app = FastAPI(title="PairMap")
@@ -43,6 +43,12 @@ async def startup() -> None:
     if purged:
         import logging
         logging.getLogger(__name__).info("Purged %d old map jobs", len(purged))
+    executor.init()
+
+
+@app.on_event("shutdown")
+async def shutdown() -> None:
+    executor.shutdown()
 
 
 # Serve frontend SPA

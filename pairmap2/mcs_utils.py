@@ -1,6 +1,7 @@
 """mcs_utils -- MCS-based scoring utilities."""
 import copy
 import itertools
+from concurrent.futures import as_completed
 from multiprocessing import Pool
 
 import numpy as np
@@ -54,7 +55,16 @@ def compute_score(pair):
     return i, j, score
 
 
-def get_score_matrix(mols, options=None, use_seed=True, jobs=-1):
+def compute_score_pair(mol_a, mol_b, options):
+    """Worker for ProcessPoolExecutor: receives individual mols, not the full list."""
+    try:
+        _, score = score_function(mol_a, mol_b, options)
+    except Exception:
+        _, score = score_function(mol_a, mol_b, options)
+    return score
+
+
+def get_score_matrix(mols, options=None, use_seed=True, jobs=0, executor=None):
     if options is None:
         options = {}
     if use_seed:
@@ -63,19 +73,32 @@ def get_score_matrix(mols, options=None, use_seed=True, jobs=-1):
     else:
         seedSmarts = ""
 
+    opts = {**options, "seed": seedSmarts}
     N = len(mols)
     score_matrix = np.zeros((N, N))
-    pairs = [(i, j, mols, {**options, "seed": seedSmarts}) for i, j in itertools.combinations(range(N), 2)]
+    pairs = list(itertools.combinations(range(N), 2))
 
-    if jobs == 1 or jobs == 0:
-        for i, j, score in tqdm(map(compute_score, pairs), total=len(pairs)):
+    if executor is not None:
+        futures = {
+            executor.submit(compute_score_pair, mols[i], mols[j], opts): (i, j)
+            for i, j in pairs
+        }
+        for fut in tqdm(as_completed(futures), total=len(futures)):
+            i, j = futures[fut]
+            score = fut.result()
+            score_matrix[i][j] = score
+            score_matrix[j][i] = score
+    elif jobs == 1 or jobs == 0:
+        serial_pairs = [(i, j, mols, opts) for i, j in pairs]
+        for i, j, score in tqdm(map(compute_score, serial_pairs), total=len(serial_pairs)):
             score_matrix[i][j] = score
             score_matrix[j][i] = score
     else:
         if jobs < 0:
             jobs = None
+        pool_pairs = [(i, j, mols, opts) for i, j in pairs]
         with Pool(jobs) as pool:
-            for i, j, score in tqdm(pool.imap_unordered(compute_score, pairs), total=len(pairs)):
+            for i, j, score in tqdm(pool.imap_unordered(compute_score, pool_pairs), total=len(pool_pairs)):
                 score_matrix[i][j] = score
                 score_matrix[j][i] = score
 

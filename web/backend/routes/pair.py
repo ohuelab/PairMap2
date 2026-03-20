@@ -73,12 +73,18 @@ def _run_search(mol_a, mol_b, name_a: str, name_b: str, search: SearchConfig) ->
 def _run_map(session_id: str, mapgen: MapGenConfig) -> dict:
     """Build perturbation map from cached intermediates, return cytoscape data."""
     from pairmap2 import MapGenerator
+    from .. import executor as exc
 
     entry = cache.get(session_id)
     if entry is None:
         raise ValueError(f"Session {session_id!r} not found or expired")
 
     m = mapgen
+
+    try:
+        _executor = exc.get()
+    except RuntimeError:
+        _executor = None
 
     mg = MapGenerator(
         entry.intermediates,
@@ -91,6 +97,7 @@ def _run_map(session_id: str, mapgen: MapGenConfig) -> dict:
         squared_sum=m.squared_sum,
         source_node_index=0,
         target_node_index=1,
+        executor=_executor,
     )
 
     graph = mg.build_map()

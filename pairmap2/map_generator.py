@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class MapGenerator:
-    def __init__(self, intermediate_list, optimal_path_mode=False, maxPathLength=4, cycleLength=3, maxOptimalPathLength=3, roughMaxPathLength=2, roughScoreThreshold=0.5, minScoreThreshold=0.2, CycleLinkThreshold=0.6, forceOptimalPathLength=False, chunkScale=10, squared_sum=True, source_node_index=0, target_node_index=1, jobs=-1, custom_score_matrix=None, verbose=False, lomap_options=None):
+    def __init__(self, intermediate_list, optimal_path_mode=False, maxPathLength=4, cycleLength=3, maxOptimalPathLength=3, roughMaxPathLength=2, roughScoreThreshold=0.5, minScoreThreshold=0.2, CycleLinkThreshold=0.6, forceOptimalPathLength=False, chunkScale=10, squared_sum=True, source_node_index=0, target_node_index=1, jobs=0, custom_score_matrix=None, verbose=False, lomap_options=None, executor=None):
         """
         :param intermediate_list: List of RDKit molecules representing intermediates
         :param optimal_path_mode: Output map contains only the optimal path (default: False)
@@ -31,6 +31,7 @@ class MapGenerator:
         :param custom_score_matrix: original score matrix, if None, calculated from intermediate list (default: None)
         :param verbose: verbose mode (default: False)
         :param lomap_options: options for lomap (default: None)
+        :param executor: ProcessPoolExecutor for parallel scoring (default: None)
         """
         self.intermediate_list = intermediate_list
         self.intermediate_names = [
@@ -50,6 +51,7 @@ class MapGenerator:
 
         self.N = len(self.intermediate_list)
         self.jobs = jobs
+        self.executor = executor
         self.verbose = verbose
 
         self.source_node_index = source_node_index
@@ -324,7 +326,12 @@ class MapGenerator:
 
     def get_score_matrix(self):
         if self.score_matrix is None:
-            self.score_matrix = get_score_matrix(self.intermediate_list, jobs=self.jobs, options=self.lomap_options)
+            self.score_matrix = get_score_matrix(
+                self.intermediate_list,
+                jobs=self.jobs,
+                options=self.lomap_options,
+                executor=self.executor,
+            )
         return self.score_matrix
 
     def build_map(self):
