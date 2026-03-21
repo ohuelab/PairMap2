@@ -22,7 +22,7 @@ class JobStatus(str, Enum):
 class JobConfig(BaseModel):
     similarity_threshold: float = 0.6
     max_path_length: int = 4
-    max_intermediate: int = -1
+    max_intermediate: int = 50
     jobs: int = -1
     verbose: bool = False
 

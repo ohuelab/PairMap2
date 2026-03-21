@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import multiprocessing
+import os
 from pathlib import Path
 
 
@@ -25,6 +26,7 @@ def _run_job(job_id: str, input_dir: str, config: dict) -> None:
     try:
         from pairmap2 import Pipeline, PipelineConfig
 
+        default_jobs = int(os.environ.get("PAIRMAP_SCORE_JOBS", "-1"))
         cfg = PipelineConfig(
             input_dir=input_dir,
             output_dir=str(job_dir / "output"),
@@ -32,7 +34,7 @@ def _run_job(job_id: str, input_dir: str, config: dict) -> None:
             similarity_threshold=config.get("similarity_threshold", 0.6),
             max_path_length=config.get("max_path_length", 4),
             max_intermediate=config.get("max_intermediate", -1),
-            jobs=config.get("jobs", -1),
+            jobs=config.get("jobs", default_jobs),
             verbose=config.get("verbose", False),
         )
         pipeline = Pipeline(cfg)
