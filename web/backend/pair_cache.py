@@ -18,6 +18,7 @@ class CacheEntry:
     score_matrix: Any | None
     name_a: str
     name_b: str
+    warnings: list[str] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     last_accessed: float = field(default_factory=time.time)
 

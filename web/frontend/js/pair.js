@@ -226,6 +226,13 @@ async function applyPairResult(data) {
   const graphSection = document.getElementById('pair-graph-section');
   graphSection.classList.add('visible');
 
+  const alertEl = document.getElementById('pair-alert');
+  if (data.warnings && data.warnings.length > 0) {
+    showAlert(alertEl, data.warnings.join(' '), 'warning');
+  } else {
+    hideAlert(alertEl);
+  }
+
   const nodes = data.elements.filter(e => e.group === 'nodes').length;
   const edges = data.elements.filter(e => e.group === 'edges').length;
   document.getElementById('pair-result-stats').textContent =

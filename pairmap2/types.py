@@ -44,6 +44,7 @@ class PipelineConfig:
     use_seed: bool = True
     search_mode: str = "random"  # "bfs" or "random"
     search_random_seed: int = 42
+    ionize: bool = True
 
     # output
     input_dir: str = "./input"

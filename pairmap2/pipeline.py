@@ -77,6 +77,7 @@ class Pipeline:
             cap_ring_with_hydrogen=config.cap_ring_with_hydrogen,
             no_backward_search=config.no_backward_search,
             use_seed=config.use_seed,
+            ionize=config.ionize,
         )
 
         self.mgr = IntermediateGraphManager(

@@ -98,7 +98,7 @@ class SearchConfig(BaseModel):
     no_backward_search: bool = False
     use_seed: bool = True
     max_intermediate: int = 50
-    ionize: bool = False
+    ionize: bool = True
 
 
 class MapGenConfig(BaseModel):
@@ -133,3 +133,4 @@ class MapV1Config(BaseModel):
     roughScoreThreshold: float = Field(0.5, ge=0.0, le=1.0)
     optimal_path_mode: bool = True
     minScoreThreshold: float = Field(0.2, ge=0.0, le=1.0)
+    ionize: bool = True

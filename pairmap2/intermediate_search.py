@@ -20,7 +20,7 @@ __all__ = ["SearchIntermediates"]
 
 
 class SearchIntermediates:
-    def __init__(self, source_ligand, target_ligand, verbose=False, is_atom_modfication_enabled=True, cap_ring_with_carbon=True, cap_ring_with_hydrogen=True, no_backward_search=False, intermediate_name_prefix='intermediate', use_seed=True, score_config=None, ionize=False, obabel_path='obabel', max_intermediate=100, search_mode='random', search_random_seed=42):
+    def __init__(self, source_ligand, target_ligand, verbose=False, is_atom_modfication_enabled=True, cap_ring_with_carbon=True, cap_ring_with_hydrogen=True, no_backward_search=False, intermediate_name_prefix='intermediate', use_seed=True, score_config=None, ionize=True, max_intermediate=100, search_mode='random', search_random_seed=42):
         # RemoveHs already returns a new molecule object, so deepcopy is not needed here
         self.source_ligand = RWMol(AllChem.RemoveHs(source_ligand))
         self.target_ligand = RWMol(AllChem.RemoveHs(target_ligand))
@@ -32,10 +32,17 @@ class SearchIntermediates:
         self.score_config = score_config if score_config is not None else {}
 
         self.ionize = ionize
-        self.obabel_path = obabel_path
-        if self.ionize and formal_charge(self.source_ligand) != formal_charge(self.target_ligand):
-            raise ValueError("Formal charges of the two ligands must be the same")
-        self.formal_charge = formal_charge(self.source_ligand)
+        self.warnings: list[str] = []
+        self._charge_mismatch = False
+        src_charge = formal_charge(self.source_ligand)
+        tgt_charge = formal_charge(self.target_ligand)
+        if self.ionize and src_charge != tgt_charge:
+            self.warnings.append(
+                f"Source (charge={src_charge}) and target (charge={tgt_charge}) have different "
+                "formal charges. Charge filtering skipped."
+            )
+            self._charge_mismatch = True
+        self.formal_charge = src_charge
 
         self.generator = IntermediateGenerator(
             is_atom_modfication_enabled=is_atom_modfication_enabled,
@@ -179,8 +186,10 @@ class SearchIntermediates:
 
     def show_result(self):
         logger.info('Number of total intermediates: %d', len(self.intermediate_info_list))
-        if self.ionize:
-            logger.info('Number of intermediates with the same formal charge: %d', len(self.intermediates))
+        if self.ionize and not self._charge_mismatch:
+            logger.info('Number of intermediates after charge filtering: %d', max(0, len(self.intermediates) - 2))
+        for w in self.warnings:
+            logger.warning(w)
 
     def search(self):
         self.forward_intermediate_info_list, self.forward_traces, self.forward_depth_map = self.simplex_search('forward')
@@ -192,8 +201,17 @@ class SearchIntermediates:
         intermediate_info_list = self.merge_intermediate_info_list(self.intermediate_name_prefix)
         self.intermediates_all = [info['ligand'] for info in intermediate_info_list]
         if self.ionize:
-            self.intermediates_ionized = execute_ligand_preparation(self.intermediates_all, obabel_path=self.obabel_path)
-            self.intermediates = [mol for mol in self.intermediates_ionized if formal_charge(mol) == self.formal_charge]
+            self.intermediates_ionized = execute_ligand_preparation(self.intermediates_all)
+            # Index 0 = source, 1 = target: always kept regardless of charge.
+            # Only filter intermediates (index 2+) by charge.
+            if self._charge_mismatch:
+                self.intermediates = list(self.intermediates_ionized)
+            else:
+                ionized_src = self.intermediates_ionized[0] if len(self.intermediates_ionized) > 0 else self.intermediates_all[0]
+                ionized_tgt = self.intermediates_ionized[1] if len(self.intermediates_ionized) > 1 else self.intermediates_all[1]
+                ref_charge = formal_charge(ionized_src)
+                filtered = [mol for mol in self.intermediates_ionized[2:] if formal_charge(mol) == ref_charge]
+                self.intermediates = [ionized_src, ionized_tgt] + filtered
         else:
             self.intermediates = self.intermediates_all
         if self.verbose:

@@ -193,6 +193,7 @@ class IntermediateGraphManager:
                 max_intermediate=self.config['max_intermediate'],
                 search_mode=self.config.get("search_mode", "random"),
                 search_random_seed=self.config.get("search_random_seed", 42),
+                ionize=self.config.get("ionize", True),
             )
             intermediates_avail = search_intm.search()
 

@@ -46,6 +46,7 @@ def _run_search(mol_a, mol_b, name_a: str, name_b: str, search: SearchConfig) ->
 
     intermediates = si.intermediates
     intermediates_all = getattr(si, 'intermediates_all', intermediates)
+    warnings = list(getattr(si, 'warnings', []))
 
     # Ensure all intermediates have 3D conformers (for 3D display and scoring)
     for i, mol in enumerate(intermediates):
@@ -66,6 +67,7 @@ def _run_search(mol_a, mol_b, name_a: str, name_b: str, search: SearchConfig) ->
         score_matrix=None,
         name_a=name_a,
         name_b=name_b,
+        warnings=warnings,
     )
     return cache.store(entry)
 
@@ -107,6 +109,7 @@ def _run_map(session_id: str, mapgen: MapGenConfig) -> dict:
     result = graph_to_cytoscape(graph, entry.node_mols, source_idx=0, target_idx=1)
     result["n_intermediates"] = max(0, len(entry.intermediates) - 2)
     result["session_id"] = session_id
+    result["warnings"] = entry.warnings
     return result
 
 

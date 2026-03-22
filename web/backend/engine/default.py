@@ -22,6 +22,7 @@ class PairMapDefaultEngine(PairMapEngine):
             max_intermediate=config.get("max_intermediate", -1),
             jobs=config.get("jobs", default_jobs),
             verbose=config.get("verbose", False),
+            ionize=config.get("ionize", True),
         )
         pipeline = Pipeline(cfg)
         result = pipeline.run(input_dir=input_dir)
@@ -42,6 +43,7 @@ class PairMapDefaultEngine(PairMapEngine):
             max_intermediate=config.get("max_intermediate", -1),
             jobs=config.get("jobs", default_jobs),
             verbose=config.get("verbose", False),
+            ionize=config.get("ionize", True),
         )
         pipeline = Pipeline(cfg)
         result = pipeline.run_from_moldf(mols, df)

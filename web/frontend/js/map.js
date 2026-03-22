@@ -170,6 +170,7 @@ function getMapConfig() {
     max_path_length: num('map-max-path'),
     allow_tree: chk('map-allow-tree'),
     radial: chk('map-radial'),
+    ionize: chk('map-ionize'),
     maxOptimalPathLength: num('map-max-opt-path'),
     roughScoreThreshold: flt('map-rough-score'),
     minScoreThreshold: flt('map-min-score'),
