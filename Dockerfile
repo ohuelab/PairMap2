@@ -15,12 +15,12 @@ COPY local/ ./local/
 COPY pairmap2/ ./pairmap2/
 COPY web/ ./web/
 
-# Install dependencies
+# Install dependencies via pip (reads pyproject.toml)
 RUN pip install --no-cache-dir \
     "git+https://github.com/OpenFreeEnergy/Lomap@v3.0.1" \
-    "git+https://github.com/ohuelab/PairMap.git" \
     "networkx>=3.0" "numpy>=1.24" "rdkit>=2023.3" "tqdm>=4.65" "pandas>=2.0" \
     "fastapi>=0.100" "uvicorn[standard]>=0.20" "python-multipart>=0.0.5" \
+    "openbabel-wheel>=3.1.1" \
     "./local/gufe_stub" \
     -e .
 

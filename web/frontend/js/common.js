@@ -159,9 +159,9 @@ function makeCyStyle() {
     {
       selector: 'node:selected',
       style: {
-        'border-color': '#0969da',
+        'border-color': '#e36209',
         'border-width': 4,
-        'background-color': '#f6f8fa',
+        'background-color': '#fff8f0',
       },
     },
     {
@@ -181,7 +181,7 @@ function makeCyStyle() {
     },
     {
       selector: 'edge:selected',
-      style: { 'line-color': '#0969da', 'opacity': 1 },
+      style: { 'line-color': '#e36209', 'width': 3, 'opacity': 1 },
     },
   ];
 }
@@ -476,10 +476,12 @@ async function renderEdgeSidebar(sidebarId, nodeA, nodeB, similarity, sessionId)
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
 
+    const labelA = data.label_a || `Node ${nodeA}`;
+    const labelB = data.label_b || `Node ${nodeB}`;
     const simText = similarity != null ? `Similarity: ${Number(similarity).toFixed(3)}` : '';
     sidebar.innerHTML = `
       <div class="edge-mcs-info">
-        <div class="node-name" style="font-size:13px;">Edge: ${nodeA} → ${nodeB}</div>
+        <div class="node-name" style="font-size:13px;">Edge: ${labelA} → ${labelB}</div>
         ${simText ? `<div style="font-size:12px;color:var(--text-muted);">${simText}</div>` : ''}
         <div class="mcs-legend">
           <span class="mcs-legend-item mcs-common">■ Common (${data.n_common})</span>
@@ -488,11 +490,11 @@ async function renderEdgeSidebar(sidebarId, nodeA, nodeB, similarity, sessionId)
         </div>
         <div class="mcs-mol-pair">
           <div class="mcs-mol-item">
-            <div class="mcs-mol-label">Node ${nodeA}</div>
+            <div class="mcs-mol-label">${labelA}</div>
             <div class="mcs-mol-svg">${data.svg_a}</div>
           </div>
           <div class="mcs-mol-item">
-            <div class="mcs-mol-label">Node ${nodeB}</div>
+            <div class="mcs-mol-label">${labelB}</div>
             <div class="mcs-mol-svg">${data.svg_b}</div>
           </div>
         </div>

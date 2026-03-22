@@ -306,9 +306,14 @@ def _compute_mcs_highlight(session_id: str, node_a: int, node_b: int) -> dict:
     svg_a = draw_mol(mol_a_2d, mcs_set_a, deleted, COLOR_RED)
     svg_b = draw_mol(mol_b_2d, mcs_set_b, inserted, COLOR_BLUE)
 
+    label_a = mol_a_raw.GetProp("_Name") if mol_a_raw.HasProp("_Name") else str(node_a)
+    label_b = mol_b_raw.GetProp("_Name") if mol_b_raw.HasProp("_Name") else str(node_b)
+
     return {
         "svg_a": svg_a,
         "svg_b": svg_b,
+        "label_a": label_a,
+        "label_b": label_b,
         "mcs_map": mcs_map,
         "n_common": len(mcs_map),
         "n_deleted": len(deleted),
