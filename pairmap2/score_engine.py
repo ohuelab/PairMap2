@@ -77,7 +77,7 @@ class ScoreEngine:
         self,
         cache: Optional[ScoreCache] = None,
         atom_count_diff_threshold: int = 10,
-        tanimoto_prefilter: float = 0.3,
+        tanimoto_prefilter: float = 0.0,
         jobs: int = -1,
     ):
         self.cache = cache if cache is not None else ScoreCache()

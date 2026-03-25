@@ -153,7 +153,7 @@ function makeCyStyle() {
       style: { 'border-color': '#9a6700', 'border-width': 2 },
     },
     {
-      selector: 'node[?active][!intermediate]',
+      selector: 'node[?active][!intermediate][!is_target]',
       style: { 'border-color': '#0969da', 'border-width': 3 },
     },
     {
