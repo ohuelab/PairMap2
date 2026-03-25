@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import json
 import multiprocessing
+import os
 from datetime import datetime
 from pathlib import Path
 
-MAP_JOBS_DIR = Path(__file__).parent.parent / "jobs" / "map"
+_JOBS_DIR = Path(os.environ.get("PAIRMAP_JOBS_DIR", str(Path(__file__).parent.parent / "jobs")))
+MAP_JOBS_DIR = _JOBS_DIR / "map"
 
 
 def _run_job(job_id: str, engine_name: str, config: dict, input_sdf: str) -> None:

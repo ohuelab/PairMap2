@@ -49,9 +49,14 @@ def execute_ligand_preparation(mols, pH=7.4, extract_same_formal_charge=False, c
         if not all(isinstance(i, int) for i in charge_indices):
             raise ValueError('charge_indices must be a list of integers or a single integer.')
 
-        base_charge = formal_charges[0]
-        if not all(formal_charges[i] == base_charge for i in charge_indices):
-            raise ValueError('Formal charges of the molecules are not the same.')
+        base_charge = formal_charges[charge_indices[0]]
+        mismatched = [i for i in charge_indices if formal_charges[i] != base_charge]
+        if mismatched:
+            charges_str = ', '.join(f'mol[{i}]={formal_charges[i]}' for i in charge_indices)
+            raise ValueError(
+                f'Formal charges of the molecules are not the same ({charges_str}). '
+                f'Expected all to be {base_charge}.'
+            )
         prepared = [mol for mol, charge in zip(prepared, formal_charges) if charge == base_charge]
 
     return prepared

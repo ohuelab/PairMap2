@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from functools import partial
 from io import BytesIO
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
@@ -47,6 +50,8 @@ def _run_search(mol_a, mol_b, name_a: str, name_b: str, search: SearchConfig) ->
     intermediates = si.intermediates
     intermediates_all = getattr(si, 'intermediates_all', intermediates)
     warnings = list(getattr(si, 'warnings', []))
+    traces = list(getattr(si, 'intermediate_traces', []))
+    depth_map = dict(getattr(si, 'depth_map', {}))
 
     # Ensure all intermediates have 3D conformers (for 3D display and scoring)
     for i, mol in enumerate(intermediates):
@@ -68,6 +73,8 @@ def _run_search(mol_a, mol_b, name_a: str, name_b: str, search: SearchConfig) ->
         name_a=name_a,
         name_b=name_b,
         warnings=warnings,
+        traces=traces,
+        depth_map=depth_map,
     )
     return cache.store(entry)
 
@@ -113,7 +120,8 @@ def _run_map(session_id: str, mapgen: MapGenConfig) -> dict:
     return result
 
 
-def _run_pair_smiles(req: PairRequest) -> dict:
+def _search_smiles(req: PairRequest) -> str:
+    """Validate SMILES, embed conformers, run intermediate search, return session_id."""
     from rdkit import Chem
 
     mol_a = Chem.MolFromSmiles(req.smiles_a)
@@ -125,22 +133,21 @@ def _run_pair_smiles(req: PairRequest) -> dict:
 
     mol_a = _embed_mol(mol_a)
     mol_b = _embed_mol(mol_b)
-
-    session_id = _run_search(mol_a, mol_b, req.name_a, req.name_b, req.search)
-    return _run_map(session_id, req.mapgen)
+    return _run_search(mol_a, mol_b, req.name_a, req.name_b, req.search)
 
 
-def _run_pair_sdf(
+def _search_sdf(
     file_a_bytes: bytes, file_b_bytes: bytes,
-    search: SearchConfig, mapgen: MapGenConfig,
-) -> dict:
+    search: SearchConfig,
+) -> str:
+    """Read SDF molecules, embed conformers if needed, run intermediate search, return session_id."""
     from rdkit.Chem import ForwardSDMolSupplier
 
     def read_first_mol(data: bytes, label: str):
         suppl = ForwardSDMolSupplier(BytesIO(data), removeHs=False)
         mol = next(suppl, None)
         if mol is None:
-            raise ValueError(f"Could not read molecule from SDF {label}")
+            raise ValueError(f"Could not read molecule from SDF {label}. Check that the file is valid SDF format.")
         if mol.GetNumConformers() == 0:
             mol = _embed_mol(mol)
         return mol
@@ -150,9 +157,7 @@ def _run_pair_sdf(
 
     name_a = (mol_a.GetProp("_Name") if mol_a.HasProp("_Name") else "").strip() or "Molecule A"
     name_b = (mol_b.GetProp("_Name") if mol_b.HasProp("_Name") else "").strip() or "Molecule B"
-
-    session_id = _run_search(mol_a, mol_b, name_a, name_b, search)
-    return _run_map(session_id, mapgen)
+    return _run_search(mol_a, mol_b, name_a, name_b, search)
 
 
 # ── Pydantic model for remap ──────────────────────────────────────────────────
@@ -168,13 +173,25 @@ class RemapRequest(BaseModel):
 async def run_pair(req: PairRequest):
     """Run PairMap synchronously (SMILES input)."""
     loop = asyncio.get_event_loop()
+
+    # Phase 1: intermediate search (expensive)
     try:
-        result = await loop.run_in_executor(None, partial(_run_pair_smiles, req))
+        session_id = await loop.run_in_executor(None, partial(_search_smiles, req))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    except Exception:
-        import traceback
-        raise HTTPException(status_code=500, detail=traceback.format_exc())
+    except Exception as exc:
+        logger.exception("Intermediate search failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    # Phase 2: map generation (fast, uses cached intermediates)
+    try:
+        result = await loop.run_in_executor(None, partial(_run_map, session_id, req.mapgen))
+    except Exception as exc:
+        logger.exception("Map generation failed for session %s", session_id)
+        raise HTTPException(
+            status_code=500,
+            detail={"message": str(exc), "session_id": session_id},
+        )
     return result
 
 
@@ -195,15 +212,27 @@ async def run_pair_sdf(
         raise HTTPException(status_code=422, detail=str(exc))
 
     loop = asyncio.get_event_loop()
+
+    # Phase 1: intermediate search (expensive)
     try:
-        result = await loop.run_in_executor(
-            None, partial(_run_pair_sdf, bytes_a, bytes_b, search_cfg, mapgen_cfg)
+        session_id = await loop.run_in_executor(
+            None, partial(_search_sdf, bytes_a, bytes_b, search_cfg)
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    except Exception:
-        import traceback
-        raise HTTPException(status_code=500, detail=traceback.format_exc())
+    except Exception as exc:
+        logger.exception("Intermediate search failed (SDF)")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    # Phase 2: map generation (fast, uses cached intermediates)
+    try:
+        result = await loop.run_in_executor(None, partial(_run_map, session_id, mapgen_cfg))
+    except Exception as exc:
+        logger.exception("Map generation failed for session %s", session_id)
+        raise HTTPException(
+            status_code=500,
+            detail={"message": str(exc), "session_id": session_id},
+        )
     return result
 
 
@@ -215,9 +244,12 @@ async def remap_pair(req: RemapRequest):
         result = await loop.run_in_executor(None, partial(_run_map, req.session_id, req.mapgen))
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    except Exception:
-        import traceback
-        raise HTTPException(status_code=500, detail=traceback.format_exc())
+    except Exception as exc:
+        logger.exception("Remap failed for session %s", req.session_id)
+        raise HTTPException(
+            status_code=500,
+            detail={"message": str(exc), "session_id": req.session_id},
+        )
     return result
 
 
@@ -331,9 +363,89 @@ async def get_mcs_highlight(session_id: str, node_a: int, node_b: int):
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    except Exception:
-        import traceback
-        raise HTTPException(status_code=500, detail=traceback.format_exc())
+    except Exception as exc:
+        logger.exception("MCS computation failed for session %s nodes %d/%d", session_id, node_a, node_b)
+        raise HTTPException(status_code=500, detail=str(exc))
+    return result
+
+
+def _build_search_graph(session_id: str) -> dict:
+    """Build Cytoscape elements for the intermediate search genealogy graph."""
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+    from rdkit.Chem.Draw import rdMolDraw2D
+
+    entry = cache.get(session_id)
+    if entry is None:
+        raise ValueError(f"Session {session_id!r} not found or expired")
+
+    mols = entry.intermediates_all
+    traces = entry.traces
+    depth_map = entry.depth_map
+
+    def mol_to_svg(mol):
+        try:
+            m = Chem.RWMol(Chem.MolFromSmiles(Chem.MolToSmiles(mol)))
+            AllChem.Compute2DCoords(m)
+            drawer = rdMolDraw2D.MolDraw2DSVG(160, 120)
+            drawer.drawOptions().addStereoAnnotation = False
+            drawer.DrawMolecule(m)
+            drawer.FinishDrawing()
+            return drawer.GetDrawingText()
+        except Exception:
+            return ""
+
+    nodes = []
+    for i, mol in enumerate(mols):
+        if mol is None:
+            continue
+        smiles = Chem.MolToSmiles(mol) if mol is not None else ""
+        label = mol.GetProp("_Name") if mol.HasProp("_Name") else f"intermediate-{i:04d}"
+        depth = depth_map.get(smiles, 0)
+        nodes.append({
+            "group": "nodes",
+            "data": {
+                "id": str(i),
+                "label": label,
+                "smiles": smiles,
+                "aligned_svg": mol_to_svg(mol),
+                "is_source": i == 0,
+                "is_target": i == 1,
+                "intermediate": i >= 2,
+                "depth": depth,
+            },
+        })
+
+    # Deduplicate edges
+    seen_edges: set = set()
+    edges = []
+    for src, tgt in traces:
+        key = (min(src, tgt), max(src, tgt))
+        if key not in seen_edges and src < len(mols) and tgt < len(mols):
+            seen_edges.add(key)
+            edges.append({
+                "group": "edges",
+                "data": {
+                    "id": f"{src}-{tgt}",
+                    "source": str(src),
+                    "target": str(tgt),
+                },
+            })
+
+    return {"elements": nodes + edges, "n_intermediates": max(0, len(mols) - 2)}
+
+
+@router.get("/pair/{session_id}/search-graph")
+async def get_search_graph(session_id: str):
+    """Return Cytoscape elements for the intermediate search genealogy."""
+    loop = asyncio.get_event_loop()
+    try:
+        result = await loop.run_in_executor(None, partial(_build_search_graph, session_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Search graph build failed for session %s", session_id)
+        raise HTTPException(status_code=500, detail=str(exc))
     return result
 
 

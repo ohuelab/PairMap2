@@ -19,6 +19,9 @@ class CacheEntry:
     name_a: str
     name_b: str
     warnings: list[str] = field(default_factory=list)
+    # Intermediate search genealogy data
+    traces: list = field(default_factory=list)          # [[parent_idx, child_idx], ...]
+    depth_map: dict = field(default_factory=dict)       # {smiles: depth}
     created_at: float = field(default_factory=time.time)
     last_accessed: float = field(default_factory=time.time)
 

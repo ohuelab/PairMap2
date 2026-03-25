@@ -234,9 +234,15 @@
   <!-- Graph result -->
   <div class="graph-section mt-2" id="pair-graph-section">
     <div class="section-header">
-      <span class="section-title">Result</span>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <span class="section-title">Result</span>
+        <div class="pair-view-tabs">
+          <button class="pair-view-tab active" data-view="map">Map</button>
+          <button class="pair-view-tab" data-view="search">Search Graph</button>
+        </div>
+      </div>
       <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-        <div class="graph-legend">
+        <div class="graph-legend" id="pair-map-legend">
           <div class="legend-item"><div class="legend-dot source"></div>Source</div>
           <div class="legend-item"><div class="legend-dot target"></div>Target</div>
           <div class="legend-item"><div class="legend-dot intermediate"></div>Intermediate</div>
@@ -250,14 +256,31 @@
       </div>
     </div>
     <div class="graph-layout">
-      <div class="cy-wrap">
+      <!-- Map view -->
+      <div class="cy-wrap" id="pair-map-view">
         <div id="cy-pair"></div>
         <div class="cy-toolbar">
           <button class="btn btn-secondary btn-sm btn-icon" id="pair-fit-btn" title="Fit to view">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
           </button>
+          <button class="btn btn-secondary btn-sm btn-icon" id="pair-reset-btn" title="Reset layout">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          </button>
         </div>
         <div class="graph-stats" id="pair-graph-stats"></div>
+      </div>
+      <!-- Search Graph view -->
+      <div class="cy-wrap" id="pair-search-view" style="display:none;">
+        <div id="cy-pair-search"></div>
+        <div class="cy-toolbar">
+          <button class="btn btn-secondary btn-sm btn-icon" id="pair-search-fit-btn" title="Fit to view">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+          </button>
+          <button class="btn btn-secondary btn-sm btn-icon" id="pair-search-reset-btn" title="Reset layout">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          </button>
+        </div>
+        <div class="graph-stats" id="pair-search-stats"></div>
       </div>
       <div class="node-sidebar" id="pair-sidebar">
         <div class="sidebar-placeholder">
@@ -443,6 +466,9 @@
         <div class="cy-toolbar">
           <button class="btn btn-secondary btn-sm btn-icon" id="map-fit-btn" title="Fit to view">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+          </button>
+          <button class="btn btn-secondary btn-sm btn-icon" id="map-reset-btn" title="Reset layout">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
           </button>
         </div>
         <div class="graph-stats" id="map-graph-stats"></div>

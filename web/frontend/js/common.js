@@ -100,6 +100,45 @@ document.querySelectorAll('.dropzone').forEach(dz => {
   dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); });
 });
 
+/* ── Error message formatting ──────────────────────────────────────────────── */
+/**
+ * Extract a user-friendly message from an API error response.
+ * Handles: plain string, {message, session_id} object, Pydantic validation arrays.
+ * Returns { message, sessionId } where sessionId may be null.
+ */
+function parseApiError(detail) {
+  if (!detail) return { message: 'An unexpected error occurred.', sessionId: null };
+
+  // Map generation error with session_id for remap
+  if (typeof detail === 'object' && !Array.isArray(detail) && detail.message) {
+    return { message: detail.message, sessionId: detail.session_id || null };
+  }
+
+  // Pydantic validation error array
+  if (Array.isArray(detail)) {
+    const fields = detail.map(e => {
+      const loc = Array.isArray(e.loc) ? e.loc.filter(x => x !== 'body').join('.') : '';
+      return loc ? `${loc}: ${e.msg}` : e.msg;
+    });
+    return { message: fields.join('; '), sessionId: null };
+  }
+
+  if (typeof detail === 'string') return { message: detail, sessionId: null };
+  return { message: JSON.stringify(detail), sessionId: null };
+}
+
+/**
+ * Parse a fetch Response and throw an Error with the user-friendly message.
+ * Attaches sessionId to the error if present.
+ */
+async function throwApiError(res) {
+  const body = await res.json().catch(() => ({ detail: res.statusText }));
+  const { message, sessionId } = parseApiError(body.detail);
+  const err = new Error(message);
+  err.sessionId = sessionId;
+  throw err;
+}
+
 /* ── Show / hide alert ─────────────────────────────────────────────────────── */
 function showAlert(el, msg, type = 'error') {
   el.textContent = msg;
@@ -259,9 +298,10 @@ async function renderCytoscape(containerId, data, options = {}) {
   };
 
   if (layoutConfig.animate) {
-    layoutInstance.one('layoutstop', loadImages);
+    layoutInstance.one('layoutstop', () => { saveInitialPositions(cy); loadImages(); });
   } else {
     layoutInstance.run();
+    saveInitialPositions(cy);
     loadImages();
     return cy;
   }
@@ -269,6 +309,22 @@ async function renderCytoscape(containerId, data, options = {}) {
   layoutInstance.run();
 
   return cy;
+}
+
+function saveInitialPositions(cy) {
+  cy._initialPositions = {};
+  cy.nodes().forEach(n => {
+    cy._initialPositions[n.id()] = { ...n.position() };
+  });
+}
+
+function resetPositions(cy) {
+  if (!cy || !cy._initialPositions) return;
+  cy.nodes().forEach(n => {
+    const pos = cy._initialPositions[n.id()];
+    if (pos) n.position(pos);
+  });
+  cy.fit(undefined, 40);
 }
 
 /* ── 3D molecule viewer helpers ────────────────────────────────────────────── */
@@ -473,7 +529,7 @@ async function renderEdgeSidebar(sidebarId, nodeA, nodeB, similarity, sessionId)
 
   try {
     const res = await fetch(API_BASE + `/api/pair/${sessionId}/mcs/${nodeA}/${nodeB}`);
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) await throwApiError(res);
     const data = await res.json();
 
     const labelA = data.label_a || `Node ${nodeA}`;
@@ -500,10 +556,12 @@ async function renderEdgeSidebar(sidebarId, nodeA, nodeB, similarity, sessionId)
         </div>
       </div>`;
   } catch (e) {
-    sidebar.innerHTML = `
-      <div class="sidebar-placeholder" style="color:var(--red);">
-        MCS computation failed:<br><small>${e.message}</small>
-      </div>`;
+    const placeholder = document.createElement('div');
+    placeholder.className = 'sidebar-placeholder';
+    placeholder.style.color = 'var(--red)';
+    placeholder.textContent = `MCS computation failed: ${e.message}`;
+    sidebar.innerHTML = '';
+    sidebar.appendChild(placeholder);
   }
 }
 

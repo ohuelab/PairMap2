@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import uuid
 from functools import partial
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -214,5 +217,6 @@ async def get_map_mcs(job_id: str, node_a: str, node_b: str, x_session_id: str =
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
+        logger.exception("MCS computation failed for job %s nodes %s/%s", job_id, node_a, node_b)
         raise HTTPException(status_code=500, detail=str(e))
     return result

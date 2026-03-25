@@ -41,10 +41,15 @@ class MapGenerator:
 
         if custom_score_matrix is not None:
             if len(custom_score_matrix) != len(intermediate_list):
-                raise Exception('The size of the custom score matrix does not match the intermediate list.')
+                raise ValueError(
+                    f'Custom score matrix size ({len(custom_score_matrix)}) does not match '
+                    f'the intermediate list size ({len(intermediate_list)}).'
+                )
             if len(custom_score_matrix[0]) != len(intermediate_list):
-                raise Exception('The custom score matrix must be a square matrix, but the size is {}x{}'.format(
-                    len(custom_score_matrix), len(custom_score_matrix[0])))
+                raise ValueError(
+                    f'Custom score matrix must be {len(intermediate_list)}x{len(intermediate_list)}, '
+                    f'but got {len(custom_score_matrix)}x{len(custom_score_matrix[0])}.'
+                )
             self.score_matrix = custom_score_matrix
         else:
             self.score_matrix = None
@@ -165,7 +170,19 @@ class MapGenerator:
                 best_h = h
 
         if best_h is None or best_cost == INF:
-            raise Exception('No path found, please check the input.')
+            src_name = self.intermediate_names[src]
+            tgt_name = self.intermediate_names[tgt]
+            # Find the highest score between any two nodes to help diagnose threshold issues
+            max_score = max(
+                (self.score_matrix[u][v] for u in range(N) for v in range(u + 1, N)),
+                default=0.0,
+            )
+            raise Exception(
+                f'No path found from "{src_name}" to "{tgt_name}" within {K} hops. '
+                f'The highest pairwise similarity score is {max_score:.3f} '
+                f'(minScoreThreshold={self.minScoreThreshold}). '
+                f'Try lowering minScoreThreshold or adding intermediate molecules.'
+            )
 
         # Reconstruct path via prev pointers
         path = []
@@ -175,7 +192,7 @@ class MapGenerator:
             path.append(v)
             u, h_prev = prev[h][v]
             if u is None:
-                raise Exception('Path reconstruction failed.')
+                raise Exception(f'Internal error: path reconstruction failed at node {v} (hop {h}).')
             v = u
             h = h_prev
         path.append(src)
@@ -236,7 +253,7 @@ class MapGenerator:
         is_invalid = not all([node in subgraph.nodes for node in self.found_path])
 
         if is_invalid:
-            raise Exception('invalid graph: get_main_subgraph')
+            raise Exception('Internal error: molecular graph construction failed (main subgraph).')
         return subgraph
 
     def get_reachable_subgraph(self, graph):
@@ -249,7 +266,7 @@ class MapGenerator:
 
         is_invalid = not all([node in subgraph.nodes for node in self.found_path])
         if is_invalid:
-            raise Exception('invalid graph: get_reachable_subgraph')
+            raise Exception('Internal error: molecular graph construction failed (reachable subgraph).')
         return subgraph
 
     def generate_initial_graph(self):
@@ -364,7 +381,7 @@ class MapGenerator:
 
         is_invalid = not all([node in exgraph.nodes for node in found_path])
         if is_invalid:
-            raise Exception('invalid initial graph')
+            raise Exception('Internal error: initial graph validation failed.')
         else:
             subgraph = exgraph.copy()
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -10,7 +11,8 @@ from typing import Optional
 
 from .models import MapJobStatus
 
-MAP_JOBS_DB = Path(__file__).parent.parent / "jobs" / "map_jobs.db"
+_JOBS_DIR = Path(os.environ.get("PAIRMAP_JOBS_DIR", str(Path(__file__).parent.parent / "jobs")))
+MAP_JOBS_DB = _JOBS_DIR / "map_jobs.db"
 
 
 def _parse_dt(s: Optional[str]) -> Optional[str]:

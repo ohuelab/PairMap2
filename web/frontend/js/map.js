@@ -204,10 +204,7 @@ document.getElementById('map-submit-btn').addEventListener('click', async () => 
 
   try {
     const res = await apiFetch(API_BASE + '/api/map/jobs', { method: 'POST', body: fd });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail));
-    }
+    if (!res.ok) await throwApiError(res);
     const job = await res.json();
     showAlert(alertEl, `Job submitted: ${job.id}`, 'info');
     refreshMapJobs();
@@ -402,16 +399,23 @@ async function renderMapEdgeSidebar(jobId, edgeData) {
         </div>
       </div>`;
   } catch (e) {
-    sidebar.innerHTML = `
-      <div class="sidebar-placeholder" style="color:var(--red);">
-        MCS computation failed:<br><small>${e.message}</small>
-      </div>`;
+    const placeholder = document.createElement('div');
+    placeholder.className = 'sidebar-placeholder';
+    placeholder.style.color = 'var(--red)';
+    placeholder.textContent = `MCS computation failed: ${e.message}`;
+    sidebar.innerHTML = '';
+    sidebar.appendChild(placeholder);
   }
 }
 
 /* ── Fit button ────────────────────────────────────────────────────────────── */
 document.getElementById('map-fit-btn').addEventListener('click', () => {
   if (mapCy) mapCy.fit(undefined, 40);
+});
+
+/* ── Reset layout button ───────────────────────────────────────────────────── */
+document.getElementById('map-reset-btn').addEventListener('click', () => {
+  if (mapCy) resetPositions(mapCy);
 });
 
 /* ── Init ──────────────────────────────────────────────────────────────────── */

@@ -2,6 +2,7 @@
 
 const DEBOUNCE_MS = 350;
 let pairCy = null;
+let pairSearchCy = null;
 let pairInputMode = 'smiles'; // 'smiles' | 'sdf'
 let currentSessionId = null;
 
@@ -277,6 +278,9 @@ async function applyPairResult(data) {
 
   // Wire download buttons
   setupDownloadButtons(currentSessionId);
+
+  // Switch to Map view; Search Graph will be loaded on demand
+  switchPairView('map');
 }
 
 function showPairSidebarPlaceholder() {
@@ -346,10 +350,7 @@ document.getElementById('pair-generate-btn').addEventListener('click', async () 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ smiles_a: smilesA, smiles_b: smilesB, engine, search, mapgen }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail));
-      }
+      if (!res.ok) await throwApiError(res);
       data = await res.json();
     } else {
       const fileA = document.getElementById('sdf-file-a').files[0];
@@ -361,10 +362,7 @@ document.getElementById('pair-generate-btn').addEventListener('click', async () 
       form.append('mapgen', JSON.stringify(mapgen));
       form.append('engine', engine);
       const res = await fetch(API_BASE + '/api/pair/sdf', { method: 'POST', body: form });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail));
-      }
+      if (!res.ok) await throwApiError(res);
       data = await res.json();
     }
 
@@ -372,6 +370,24 @@ document.getElementById('pair-generate-btn').addEventListener('click', async () 
 
   } catch (err) {
     showAlert(alertEl, `Error: ${err.message}`);
+    // If map generation failed but intermediates were cached, show search graph
+    if (err.sessionId) {
+      currentSessionId = err.sessionId;
+      document.getElementById('pair-remap-btn').style.display = '';
+      const graphSection = document.getElementById('pair-graph-section');
+      graphSection.classList.add('visible');
+      // Show search view (container visible before Cytoscape init)
+      document.getElementById('pair-map-view').style.display = 'none';
+      document.getElementById('pair-search-view').style.display = '';
+      document.getElementById('pair-map-legend').style.display = 'none';
+      document.querySelectorAll('.pair-view-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === 'search');
+      });
+      renderSearchGraph(err.sessionId).catch(e => {
+        const statsEl = document.getElementById('pair-search-stats');
+        statsEl.textContent = `Search graph unavailable: ${e.message}`;
+      });
+    }
   } finally {
     btn.disabled = false;
     spinner.classList.remove('visible');
@@ -401,10 +417,7 @@ document.getElementById('pair-remap-btn').addEventListener('click', async () => 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: currentSessionId, mapgen }),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail));
-    }
+    if (!res.ok) await throwApiError(res);
     const data = await res.json();
     await applyPairResult(data);
   } catch (err) {
@@ -420,3 +433,105 @@ document.getElementById('pair-remap-btn').addEventListener('click', async () => 
 document.getElementById('pair-fit-btn').addEventListener('click', () => {
   if (pairCy) pairCy.fit(undefined, 40);
 });
+
+document.getElementById('pair-search-fit-btn').addEventListener('click', () => {
+  if (pairSearchCy) pairSearchCy.fit(undefined, 40);
+});
+
+/* ── Reset layout buttons ──────────────────────────────────────────────────── */
+document.getElementById('pair-reset-btn').addEventListener('click', () => {
+  if (pairCy) resetPositions(pairCy);
+});
+
+document.getElementById('pair-search-reset-btn').addEventListener('click', () => {
+  if (pairSearchCy) resetPositions(pairSearchCy);
+});
+
+/* ── Pair view sub-tab switching ────────────────────────────────────────────── */
+function switchPairView(view) {
+  document.querySelectorAll('.pair-view-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === view);
+  });
+  document.getElementById('pair-map-view').style.display = view === 'map' ? '' : 'none';
+  document.getElementById('pair-search-view').style.display = view === 'search' ? '' : 'none';
+  document.getElementById('pair-map-legend').style.display = view === 'map' ? '' : 'none';
+  // Reset sidebar
+  const sidebar = document.getElementById('pair-sidebar');
+  sidebar.innerHTML = `<div class="sidebar-placeholder">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Click a node or edge to inspect
+  </div>`;
+  if (view === 'map' && pairCy) {
+    requestAnimationFrame(() => requestAnimationFrame(() => { pairCy.resize(); pairCy.fit(undefined, 40); }));
+  }
+  if (view === 'search') {
+    if (pairSearchCy) {
+      // Already loaded — resize+fit after reflow
+      requestAnimationFrame(() => requestAnimationFrame(() => { pairSearchCy.resize(); pairSearchCy.fit(undefined, 30); }));
+    } else if (currentSessionId) {
+      // Load on first visit to this tab
+      renderSearchGraph(currentSessionId).catch(err => {
+        const statsEl = document.getElementById('pair-search-stats');
+        statsEl.textContent = `Search graph unavailable: ${err.message}`;
+      });
+    }
+  }
+}
+
+document.querySelectorAll('.pair-view-tab').forEach(btn => {
+  btn.addEventListener('click', () => switchPairView(btn.dataset.view));
+});
+
+/* ── Search Graph rendering ─────────────────────────────────────────────────── */
+async function renderSearchGraph(sessionId) {
+  const res = await fetch(API_BASE + `/api/pair/${sessionId}/search-graph`);
+  if (!res.ok) await throwApiError(res);
+  const data = await res.json();
+
+  const statsEl = document.getElementById('pair-search-stats');
+  const nNodes = data.elements.filter(e => e.group === 'nodes').length;
+  const nEdges = data.elements.filter(e => e.group === 'edges').length;
+  statsEl.textContent = `${nNodes} nodes · ${nEdges} edges`;
+
+  if (pairSearchCy) { pairSearchCy.destroy(); pairSearchCy = null; }
+
+  // double-rAF: CSS Grid の reflow が完了するのを確実に待つ
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  const container = document.getElementById('cy-pair-search');
+  if (container.clientWidth === 0) {
+    await new Promise(r => setTimeout(r, 50));
+  }
+
+  pairSearchCy = cytoscape({
+    container,
+    elements: data.elements,
+    style: makeCyStyle(),
+    layout: { name: 'breadthfirst', directed: true, roots: ['0'], spacingFactor: 1.4, padding: 30 },
+    minZoom: 0.1,
+    maxZoom: 4,
+    wheelSensitivity: 0.3,
+  });
+
+  // バックエンドで生成した SVG を設定
+  for (const node of pairSearchCy.nodes()) {
+    const svg = node.data('aligned_svg');
+    if (svg) node.style({ 'background-image': svgToDataUrl(svg), 'background-color': '#ffffff' });
+  }
+
+  pairSearchCy.resize();
+  pairSearchCy.fit(undefined, 30);
+  saveInitialPositions(pairSearchCy);
+
+  pairSearchCy.on('tap', 'node', (evt) => {
+    renderNodeSidebar('pair-sidebar', evt.target.data());
+  });
+  pairSearchCy.on('tap', (evt) => {
+    if (evt.target === pairSearchCy) {
+      document.getElementById('pair-sidebar').innerHTML = `<div class="sidebar-placeholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Click a node or edge to inspect
+      </div>`;
+    }
+  });
+}
