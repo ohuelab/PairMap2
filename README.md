@@ -11,6 +11,8 @@ A public instance is available at <https://pairmap.yumizsui.com>.
 PairMap2 prepares intermediate molecules and perturbation networks. It does not
 run downstream FEP calculations.
 
+![PairMap2 Pair Mode result view](assets/pairmap2-pair-mode-result.png)
+
 ## Features
 
 - Pair mode for a single source-target transformation from SMILES or SDF input.
