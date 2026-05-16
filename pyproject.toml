@@ -38,5 +38,32 @@ build-backend = "hatchling.build"
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.hatch.build]
+exclude = [
+    "/.claude",
+    "/benchmarks",
+    "/docs",
+    "/jobs",
+    "/local/local",
+    "/tmp",
+    "/web/jobs",
+    "**/__pycache__",
+    "*.db",
+    "*.pyc",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/Dockerfile",
+    "/LICENSE",
+    "/README.md",
+    "/docker-compose.yml",
+    "/local/gufe_stub",
+    "/pairmap2",
+    "/pyproject.toml",
+    "/tests",
+    "/web",
+]
+
 [tool.hatch.build.targets.wheel]
-packages = ["pairmap2"]
+packages = ["pairmap2", "web"]
