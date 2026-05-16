@@ -1,6 +1,6 @@
 [project]
 name = "pairmap2"
-version = "0.2.0"
+version = "1.0.0"
 description = "PairMap2 — high-speed FEP intermediate insertion tool with web UI"
 license = { text = "MIT" }
 requires-python = ">=3.12"
