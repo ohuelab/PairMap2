@@ -1,4 +1,4 @@
-"""SQLite job store for Map Mode v1 (PairMap engine) jobs."""
+"""SQLite job store for perturbation-map jobs."""
 from __future__ import annotations
 
 import json
@@ -16,7 +16,7 @@ MAP_JOBS_DB = _JOBS_DIR / "map_jobs.db"
 
 
 def _parse_dt(s: Optional[str]) -> Optional[str]:
-    return s  # stored as ISO string, returned as-is for the model
+    return s
 
 
 @contextmanager

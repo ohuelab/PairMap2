@@ -1,4 +1,4 @@
-"""Map Mode v1 routes — single SDF → PairMap engine → perturbation map."""
+"""Routes for generating perturbation maps from multi-molecule SDF input."""
 from __future__ import annotations
 
 import asyncio
@@ -38,7 +38,7 @@ async def create_map_job(
     job_dir = MAP_JOBS_DIR / job_id / "input"
     job_dir.mkdir(parents=True, exist_ok=True)
 
-    sdf_path = job_dir / (file.filename or "input.sdf")
+    sdf_path = job_dir / "input.sdf"
     sdf_path.write_bytes(await file.read())
 
     status = map_store.create_job(job_id, engine, cfg, session_id=x_session_id)

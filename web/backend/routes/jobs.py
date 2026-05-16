@@ -1,4 +1,4 @@
-"""Job CRUD endpoints for PairMap2 WebUI."""
+"""Job CRUD endpoints for PairMap2 Web UI."""
 from __future__ import annotations
 
 import json

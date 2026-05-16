@@ -18,6 +18,11 @@ from pairmap2.score_engine import ScoreEngine
 
 DATA_DIR = Path(__file__).parents[1] / "benchmarks" / "data"
 
+pytestmark = pytest.mark.skipif(
+    not DATA_DIR.exists(),
+    reason="Internal benchmark data are not included in the public repository.",
+)
+
 CASES = [
     "Bace1_00",
     "P38_00",

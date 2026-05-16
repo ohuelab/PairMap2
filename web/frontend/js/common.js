@@ -1,7 +1,5 @@
-/* ── API base URL ───────────────────────────────────────────────────────────── */
-// In production (Cloudflare Pages), point to the Render.com backend.
-// In development (localhost), use the same origin (empty string).
-const API_BASE = window.location.hostname === 'localhost'
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const API_BASE = LOCAL_HOSTS.has(window.location.hostname)
   ? ''
   : 'https://pairmap-api.onrender.com';
 
@@ -236,7 +234,6 @@ async function renderCytoscape(containerId, data, options = {}) {
   const container = document.getElementById(containerId);
   if (!container) return null;
 
-  // Destroy existing instance
   if (window._cyInstances && window._cyInstances[containerId]) {
     window._cyInstances[containerId].destroy();
   }
@@ -297,16 +294,18 @@ async function renderCytoscape(containerId, data, options = {}) {
     }
   };
 
+  const imageLoad = loadImages().catch((err) => {
+    console.error('Failed to load molecule images:', err);
+  });
+
   if (layoutConfig.animate) {
-    layoutInstance.one('layoutstop', () => { saveInitialPositions(cy); loadImages(); });
+    layoutInstance.one('layoutstop', () => { saveInitialPositions(cy); });
+    layoutInstance.run();
   } else {
     layoutInstance.run();
     saveInitialPositions(cy);
-    loadImages();
-    return cy;
+    await imageLoad;
   }
-
-  layoutInstance.run();
 
   return cy;
 }
@@ -564,4 +563,3 @@ async function renderEdgeSidebar(sidebarId, nodeA, nodeB, similarity, sessionId)
     sidebar.appendChild(placeholder);
   }
 }
-

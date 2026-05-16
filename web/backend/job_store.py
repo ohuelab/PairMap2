@@ -1,4 +1,4 @@
-"""SQLite-based job state management for PairMap2 WebUI."""
+"""SQLite-based job state management for PairMap2 Web UI."""
 from __future__ import annotations
 
 import json
@@ -11,7 +11,6 @@ from typing import List, Optional
 
 from .models import JobResponse, JobStatus, StageTimingModel
 
-# Jobs directory: configurable via env var; default is ./jobs relative to project root
 JOBS_DIR = Path(os.environ.get("PAIRMAP_JOBS_DIR", str(Path(__file__).parent.parent / "jobs")))
 DB_PATH = JOBS_DIR / "jobs.db"
 
@@ -21,7 +20,6 @@ def _conn():
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(str(DB_PATH))
     con.row_factory = sqlite3.Row
-    # WAL mode for safe concurrent access from worker threads
     con.execute("PRAGMA journal_mode=WAL")
     try:
         yield con

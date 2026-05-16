@@ -1,4 +1,4 @@
-"""Subprocess-based worker for Map Mode v1 (PairMap engine) jobs."""
+"""Subprocess-based worker for perturbation-map jobs."""
 from __future__ import annotations
 
 import json
@@ -30,21 +30,17 @@ def _run_job(job_id: str, engine_name: str, config: dict, input_sdf: str) -> Non
         input_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Split multi-molecule SDF into one file per molecule (LOMAP requirement)
         sdf_path = Path(input_sdf)
         raw = sdf_path.read_text()
         records = [r.strip() for r in raw.split("$$$$") if r.strip()]
         if len(records) < 2:
             raise ValueError(f"Input SDF must contain at least 2 molecules, got {len(records)}")
-        # Remove the combined SDF so only per-mol files remain in input_dir
         sdf_path.unlink(missing_ok=True)
         for i, molblock in enumerate(records):
             first_line = molblock.splitlines()[0].strip()
             mol_name = first_line if first_line else f"mol_{i}"
-            # Sanitise name for use as filename
             safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in mol_name)
             out_path = input_dir / f"{safe_name or f'mol_{i}'}.sdf"
-            # Avoid collisions
             if out_path.exists():
                 out_path = input_dir / f"{safe_name}_{i}.sdf"
             out_path.write_text(molblock + "\n$$$$\n")
@@ -57,7 +53,7 @@ def _run_job(job_id: str, engine_name: str, config: dict, input_sdf: str) -> Non
         )
 
         engine = get_engine(engine_name)
-        map_store.update_job(job_id, progress="Running PairMap engine")
+        map_store.update_job(job_id, progress="Running PairMap2 engine")
 
         run_config = dict(config)
         run_config["output_dir"] = str(output_dir)

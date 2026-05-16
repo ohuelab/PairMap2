@@ -332,7 +332,7 @@ document.getElementById('pair-generate-btn').addEventListener('click', async () 
 
   hideAlert(alertEl);
   btn.disabled = true;
-  spinnerMsg.textContent = 'Running PairMap…';
+  spinnerMsg.textContent = 'Running PairMap2…';
   spinner.classList.add('visible');
   graphSection.classList.remove('visible');
 

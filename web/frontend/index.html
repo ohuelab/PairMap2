@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PairMap</title>
+  <title>PairMap2</title>
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://unpkg.com/@rdkit/rdkit/Code/MinimalLib/dist/RDKit_minimal.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
@@ -19,7 +19,7 @@
         <circle cx="5" cy="12" r="3"/><circle cx="19" cy="5" r="3"/><circle cx="19" cy="19" r="3"/>
         <line x1="8" y1="11" x2="16" y2="6"/><line x1="8" y1="13" x2="16" y2="18"/>
       </svg>
-      PairMap
+      PairMap2
     </span>
     <button class="btn btn-secondary btn-sm" id="about-btn">About</button>
   </div>
@@ -226,7 +226,7 @@
     </button>
     <div class="spinner-wrap" id="pair-spinner">
       <div class="spinner"></div>
-      <span id="pair-spinner-msg">Running PairMap…</span>
+      <span id="pair-spinner-msg">Running PairMap2…</span>
     </div>
     <div class="alert" id="pair-alert"></div>
   </div>
@@ -498,9 +498,9 @@
     <div class="modal-body">
 
       <section id="about-about" class="modal-section active">
-        <h2>About PairMap</h2>
+        <h2>About PairMap2</h2>
         <p>
-          PairMap is a tool for improving the accuracy of relative binding free energy perturbation (RBFEP) calculations
+          PairMap2 is a tool for improving the accuracy of relative binding free energy perturbation (RBFEP) calculations
           by introducing intermediate molecules between structurally distant compound pairs.
           Large topological transformations — such as scaffold hops or ring insertions/deletions — are decomposed into
           smaller, more tractable perturbation steps via automatically generated intermediates.
@@ -520,7 +520,7 @@
         </p>
         <h3>Disclaimer</h3>
         <p class="note">
-          This service is provided for evaluation purposes only. For continued or production use, please use the <a href="https://github.com/ohuelab/PairMap" target="_blank" rel="noopener">local version</a>.<br>
+          This service is provided for evaluation purposes only. For continued or production use, please use the <a href="https://github.com/ohuelab/PairMap2" target="_blank" rel="noopener">local version</a>.<br>
           Data and environments will be deleted 90 days after job submission and may be deleted or updated without prior notice.<br>
           We do not guarantee any technical support or maintenance for this service. We assume no liability for any damages arising from or related to the use of this service.
         </p>
@@ -543,7 +543,7 @@
               <li><em>Map Generation</em> — control path length, rough/min score thresholds, and optimal path mode.</li>
             </ul>
           </li>
-          <li>Click <strong>Generate</strong>. PairMap will exhaustively generate intermediates, find the optimal path, and build the perturbation map.</li>
+          <li>Click <strong>Generate</strong>. PairMap2 will exhaustively generate intermediates, find the optimal path, and build the perturbation map.</li>
           <li>In the result graph, <strong>click a node</strong> to inspect the 3D structure; <strong>click an edge</strong> to see the MCS-highlighted structural difference between the two endpoint molecules.</li>
           <li>Download the results: <em>Map SDF</em> (molecules on the map), <em>Links CSV</em> (edges with scores), or <em>All Intermediates SDF</em>.</li>
         </ol>
@@ -561,7 +561,7 @@
 
       <section id="about-citation" class="modal-section">
         <h2>Citation</h2>
-        <p>If you use PairMap in your research, please cite:</p>
+        <p>If you use PairMap2 in your research, please cite the PairMap method:</p>
         <div class="citation-box">
           Furui, K.; Shimizu, T.; Akiyama, Y.; Kimura, S. R.; Terada, Y.; Ohue, M.
           PairMap: An Intermediate Insertion Approach for Improving the Accuracy of Relative Free Energy Perturbation Calculations for Distant Compound Transformations.
@@ -597,7 +597,7 @@
 </div>
 
 <footer class="app-footer">
-  <span>PairMap &copy; 2025 Ohue Lab, Institute of Science Tokyo</span>
+  <span>PairMap2 &copy; 2026 Ohue Lab, Institute of Science Tokyo</span>
   <span id="build-date"></span>
 </footer>
 

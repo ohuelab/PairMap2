@@ -160,21 +160,16 @@ def _search_sdf(
     return _run_search(mol_a, mol_b, name_a, name_b, search)
 
 
-# ── Pydantic model for remap ──────────────────────────────────────────────────
-
 class RemapRequest(BaseModel):
     session_id: str
     mapgen: MapGenConfig = Field(default_factory=MapGenConfig)
 
 
-# ── Endpoints ─────────────────────────────────────────────────────────────────
-
 @router.post("/pair")
 async def run_pair(req: PairRequest):
-    """Run PairMap synchronously (SMILES input)."""
+    """Run PairMap2 synchronously from SMILES input."""
     loop = asyncio.get_event_loop()
 
-    # Phase 1: intermediate search (expensive)
     try:
         session_id = await loop.run_in_executor(None, partial(_search_smiles, req))
     except ValueError as exc:
@@ -183,7 +178,6 @@ async def run_pair(req: PairRequest):
         logger.exception("Intermediate search failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
-    # Phase 2: map generation (fast, uses cached intermediates)
     try:
         result = await loop.run_in_executor(None, partial(_run_map, session_id, req.mapgen))
     except Exception as exc:
@@ -202,7 +196,7 @@ async def run_pair_sdf(
     search: str = Form("{}"),
     mapgen: str = Form("{}"),
 ):
-    """Run PairMap using SDF files that already contain 3D coordinates."""
+    """Run PairMap2 from SDF files that already contain 3D coordinates."""
     try:
         bytes_a = await file_a.read()
         bytes_b = await file_b.read()
@@ -213,7 +207,6 @@ async def run_pair_sdf(
 
     loop = asyncio.get_event_loop()
 
-    # Phase 1: intermediate search (expensive)
     try:
         session_id = await loop.run_in_executor(
             None, partial(_search_sdf, bytes_a, bytes_b, search_cfg)
@@ -224,7 +217,6 @@ async def run_pair_sdf(
         logger.exception("Intermediate search failed (SDF)")
         raise HTTPException(status_code=500, detail=str(exc))
 
-    # Phase 2: map generation (fast, uses cached intermediates)
     try:
         result = await loop.run_in_executor(None, partial(_run_map, session_id, mapgen_cfg))
     except Exception as exc:
@@ -253,8 +245,6 @@ async def remap_pair(req: RemapRequest):
     return result
 
 
-# ── MCS highlight endpoint ─────────────────────────────────────────────────────
-
 def _compute_mcs_highlight(session_id: str, node_a: int, node_b: int) -> dict:
     """Compute MCS-based highlighted SVGs for two nodes."""
     from rdkit import Chem
@@ -271,7 +261,6 @@ def _compute_mcs_highlight(session_id: str, node_a: int, node_b: int) -> dict:
     if mol_a_raw is None or mol_b_raw is None:
         raise ValueError(f"Node not found: {node_a} or {node_b}")
 
-    # Create clean 2D structures
     def to_2d(mol):
         m = Chem.RWMol(Chem.MolFromSmiles(Chem.MolToSmiles(mol)))
         AllChem.Compute2DCoords(m)
@@ -280,7 +269,6 @@ def _compute_mcs_highlight(session_id: str, node_a: int, node_b: int) -> dict:
     mol_a_2d = to_2d(mol_a_raw)
     mol_b_2d = to_2d(mol_b_raw)
 
-    # Find MCS
     mcs_result = rdFMCS.FindMCS(
         [mol_a_2d, mol_b_2d],
         atomCompare=rdFMCS.AtomCompare.CompareElements,
@@ -296,7 +284,6 @@ def _compute_mcs_highlight(session_id: str, node_a: int, node_b: int) -> dict:
             match_b = mol_b_2d.GetSubstructMatch(mcs_mol)
             if match_a and match_b:
                 mcs_map = list(zip(match_a, match_b))
-                # Align mol_b to mol_a using MCS coordinate map
                 if len(mcs_map) >= 3:
                     try:
                         conf_a = mol_a_2d.GetConformer()
@@ -416,7 +403,6 @@ def _build_search_graph(session_id: str) -> dict:
             },
         })
 
-    # Deduplicate edges
     seen_edges: set = set()
     edges = []
     for src, tgt in traces:
@@ -448,8 +434,6 @@ async def get_search_graph(session_id: str):
         raise HTTPException(status_code=500, detail=str(exc))
     return result
 
-
-# ── Download endpoints ────────────────────────────────────────────────────────
 
 def _mols_to_sdf(mols) -> str:
     """Convert a list of RDKit Mols to SDF-format string."""

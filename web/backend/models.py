@@ -1,14 +1,10 @@
-"""Pydantic models for PairMap2 WebUI API.
-
-Dependencies required (all present in pyproject.toml):
-  fastapi>=0.100, uvicorn[standard]>=0.20, python-multipart>=0.0.5
-"""
+"""Pydantic models for PairMap2 Web UI API."""
 from __future__ import annotations
 
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class JobStatus(str, Enum):
@@ -68,8 +64,6 @@ class GraphResponse(BaseModel):
     edges: List[GraphEdge]
 
 
-# ── Map Mode v1 job models ────────────────────────────────────────────────────
-
 class MapJobStatus(BaseModel):
     id: str
     status: str
@@ -84,11 +78,6 @@ class MapJobStatus(BaseModel):
 
 class MapJobList(BaseModel):
     jobs: List[MapJobStatus]
-
-
-# ── Pair Mode models ──────────────────────────────────────────────────────────
-
-from pydantic import Field  # noqa: E402
 
 
 class SearchConfig(BaseModel):
@@ -118,8 +107,6 @@ class PairRequest(BaseModel):
     search: SearchConfig = Field(default_factory=SearchConfig)
     mapgen: MapGenConfig = Field(default_factory=MapGenConfig)
 
-
-# ── Map Mode v1 config ────────────────────────────────────────────────────────
 
 class MapV1Config(BaseModel):
     similarity_threshold: float = Field(0.6, ge=0.0, le=1.0)
