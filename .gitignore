@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+.pytest_cache/
 .venv/
 dist/
 build/
@@ -18,9 +19,3 @@ cache/
 .vscode/
 .idea/
 uv.lock
-.gitignore
-tmp
-local/local
-benchmarks/results
-baseline_edges.json
-benchmarks/data/Roca
